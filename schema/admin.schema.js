@@ -10,7 +10,9 @@ const adminSchema = mongoose.Schema(
     role: { type: String },
     otp:{type:Number},
     otpTimeStamp:{type:Number},
-    otpVerified:{type:Boolean,default:false}
+    otpVerified:{type:Boolean,default:false},
+    mobile:{type:String},
+    image:{type:String}
   },
   {
     timestamps: true,

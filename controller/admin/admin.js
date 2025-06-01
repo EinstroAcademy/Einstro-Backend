@@ -1,6 +1,9 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Admin = require("../../schema/admin.schema");
+const fs = require('fs');
+const { promisify } = require('util');
+const unlinkAsync = promisify(fs.unlink);
 
 const signUp = async(req,res)=>{
     try {
@@ -134,5 +137,138 @@ const resetPassword = async(req,res)=>{
     }
 }
 
+const adminUpdatePassword =async(req,res)=>{
+    try {
+        const {adminId,newPassword,confirmPassword,oldPassword}= req.body
+        if(!adminId){
+            return res.json({status:0,message:"AdminId is required"})
+        }
+        const user = await Admin.findById(adminId)
+        if(!user){
+            return res.json({status:0,message:"User Not Found"})
+        }
+        const isValidPassword = await bcrypt.compare(oldPassword,user.password)
+        if(!isValidPassword){
+            return res.json({status:0,message:"Old Password is Incorrect"})
+        }
 
-module.exports={signUp,login,forgotPassword,verifyOtp,resetPassword}
+        if(newPassword===confirmPassword && isValidPassword){
+            let hashPassword = await bcrypt.hash(newPassword,10)
+            const update = await Admin.findByIdAndUpdate({_id:user._id},{password:hashPassword})
+            if(!update){
+                return res.json({status:0,message:"Password not updated"})
+            }
+        }else{
+            return res.json({status:0,message:"Password and Confirm Password Does not match"})
+        }
+
+        res.json({status:1,message:'Password Updated Successfully'})
+
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+const updateAdminProfileImage =async(req,res)=>{
+    try {
+        const {adminId,oldImage}=req.body
+        const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
+        const image = getAttachment(req.files.image[0].destination, req.files.image[0].filename);
+
+        const update = await Admin.findByIdAndUpdate({_id:adminId},{image:image})
+        if(!update){
+            return res.json({status:0,message:"Image not updated"})
+        }
+
+        if(oldImage!==""){
+            unlinkAsync(oldImage)
+            .then((resolved) => {
+             console.log('Photo removed')
+            })
+            .catch((error) => {
+              console.log('error', error);
+            });
+        }
+        res.json({status:1,message:"Profile Pic Updated"})
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+const removeProfilePic =async(req,res)=>{
+    try {
+        const {adminId,oldImage}=req.body
+        const updateAdmin =await Admin.findByIdAndUpdate({_id:adminId},{image:''})
+        if(!updateAdmin){
+            return res.json({status:0,message:"Photo not removed"})
+        }
+
+        if(oldImage!==""){
+            unlinkAsync(oldImage)
+            .then((resolved) => {
+             console.log('Photo removed')
+            })
+            .catch((error) => {
+              console.log('error', error);
+            });
+        }
+
+        res.json({status:1,message:"Photo Removed"})
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+
+const getAdminDetails = async(req,res)=>{
+    try {
+        const {adminId}= req.body
+        if(!adminId){
+            return res.json({status:1,message:"Admin Id required"})
+        }
+
+        const admin = await Admin.findById({_id:adminId})
+        if(!admin){
+            return res.json({status:0,message:"Admin Not Found"})
+        }
+
+        res.json({status:1,response:admin})
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+const updateAdminDetails = async(req,res)=>{
+    try {
+        const {adminId,username,email,mobile}= req.body
+        if(!adminId){
+            return res.json({status:1,message:"Admin Id required"})
+        }
+        let obj={
+            username,email,mobile
+        }
+
+        const admin = await Admin.findByIdAndUpdate({_id:adminId},obj)
+        if(!admin){
+            return res.json({status:0,message:"Admin Not Found"})
+        }
+
+        res.json({status:1,message:"Admin Details Updated"})
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+
+module.exports = {
+  signUp,
+  login,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
+  getAdminDetails,
+  updateAdminDetails,
+  adminUpdatePassword,
+  updateAdminProfileImage,
+  removeProfilePic
+};

@@ -4,7 +4,7 @@ const Admin = require('../schema/admin.schema');
 const authorizedAdmin = (req, res, next) => {
     const token = req.headers.authorization;
     if (token) {
-      jwt.verify(token,'einstrostudyabroad', async (err, decoded) => {
+      jwt.verify(token,process.env.JWT_SECRET, async (err, decoded) => {
         if (err || !decoded.email) {
           const data = {};
           data.response = 'Unauthorized Access';

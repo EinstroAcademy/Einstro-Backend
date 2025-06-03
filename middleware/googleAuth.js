@@ -13,7 +13,7 @@ exports.loginSuccess = async (req, res) => {
         const checkUser = await User.find({ email: email })
         if (checkUser.length > 0) {
             let token = jwt.sign({ email: email, username: name }, "einstrostudyabroad", { expiresIn: '8hr' })
-            return res.redirect(`${googleRedirectUrl}/dashboard?token=${token}`)
+            return res.redirect(`https://studytez.com/dashboard?token=${token}`)
         }
         let user = {
             fullName: name,
@@ -28,7 +28,7 @@ exports.loginSuccess = async (req, res) => {
         }
         let token = jwt.sign({ email: email, username: name, role: 'user' }, "einstrostudyabroad", { expiresIn: '8hr' })
 
-        return res.redirect(`${googleRedirectUrl}/dashboard?token=${token}`)
+        return res.redirect(`https://studytez.com/dashboard?token=${token}`)
 
     } catch (error) {
         console.log(error);

@@ -1,7 +1,7 @@
 const User = require("../schema/user.schema");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const googleRedirectUrl = process.env.GOOGLE_REDIRECT_URL ?? 'http://localhost:5173'
+const googleRedirectUrl = process.env.GOOGLE_REDIRECT_URL
 
 exports.loginSuccess = async (req, res) => {
     try {

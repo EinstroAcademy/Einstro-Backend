@@ -251,21 +251,36 @@ const getBlogDetails =async(req,res)=>{
     }
 }
 
-const removeBlog =async(req,res)=>{
+const removeBlog = async (req, res) => {
     try {
-        const {blogId,image}=req.body
-        if(!blogId){
-            return res.json({status:0,message:"Blog ID required"})
+        const { blogId, image } = req.body;
+
+        if (!blogId) {
+            return res.json({ status: 0, message: "Blog ID required" });
         }
 
-        fs.unlinkSync(image);
-        const blog = await Blog.findByIdAndDelete({_id:blogId})
-        if(!blog){
-            return res.json({status:0,message:"Blog not Removed"})
+        // Try to unlink the image, skip if not found
+        if (image) {
+            try {
+                // Use path.resolve to be extra safe
+                const imagePath = path.resolve(image);
+                fs.unlinkSync(imagePath);
+            } catch (err) {
+                console.log("Image not found or could not be deleted:", err.message);
+            }
         }
-        res.json({status:1,message:"Blog is Removed"})
+
+        const blog = await Blog.findByIdAndDelete({ _id: blogId });
+
+        if (!blog) {
+            return res.json({ status: 0, message: "Blog not Removed" });
+        }
+
+        res.json({ status: 1, message: "Blog is Removed" });
+
     } catch (error) {
-        console.log(error)
+        console.log(error);
+        res.status(500).json({ status: 0, message: "Internal server error" });
     }
 }
 
@@ -296,9 +311,17 @@ const editBlog = async(req,res)=>{
             return res.json({status:0,message:"Blog not found"})
         }
 
-        if(image!==""){
+        if (image !== "") {
             updatedData.image = image;
-            fs.unlinkSync(unLinkImage.image)
+
+            try {
+                if (unLinkImage.image) {
+                    const oldImagePath = path.resolve(unLinkImage.image);
+                    fs.unlinkSync(oldImagePath);
+                }
+            } catch (err) {
+                console.log("Could not delete old image:", err.message);
+            }
         }
        const blog = await Blog.findByIdAndUpdate(_id,{$set:updatedData})
        if(!blog){

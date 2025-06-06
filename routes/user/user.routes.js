@@ -11,7 +11,8 @@ const {
   updateProfilePic,
   updateEnglishTest,
   updatePreferred,
-  updateSchool12th
+  updateSchool12th,
+  getAllUserList
  
 } = require("../../controller/user/user");
 const { authorizedAdmin } = require("../../middleware/authAdmin");
@@ -34,5 +35,6 @@ router.post('/update/profile/pic',authorizedClient,
 router.post('/update/user/english/test',authorizedClient,updateEnglishTest)
 router.post('/update/user/12th/details',authorizedClient,updateSchool12th)
 router.post('/update/user/preferred',authorizedClient,updatePreferred)
+router.post('/get/all/user/list',authorizedAdmin,getAllUserList)
 
 module.exports = router;

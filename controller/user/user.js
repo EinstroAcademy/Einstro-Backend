@@ -358,6 +358,112 @@ const updatePreferred = async(req,res)=>{
     }
 }
 
+const getAllUserList = async (req, res) => {
+    try {
+      const { search = '', active = '', fromDate = '', toDate = '', limit = 10, skip = 0 } = req.body;
+      let query = [];
+  
+      if (search !== '') {
+        query.push({
+          $match: {
+            $or: [
+              { username: { $regex: search + '.*', $options: 'si' } },
+              { location: { $regex: search + '.*', $options: 'si' } },
+              { email: { $regex: search + '.*', $options: 'si' } },
+              { mobile: { $regex: search + '.*', $options: 'si' } },
+              { firstName: { $regex: search + '.*', $options: 'si' } },
+              { lastName: { $regex: search + '.*', $options: 'si' } },
+
+            ]
+          }
+        });
+      }
+  
+      if (active !== '') {
+        query.push({ $match: { isActive: active } });
+      }
+  
+      if (fromDate !== '') {
+        query.push({ $match: { createdAt: { $gte: new Date(fromDate) } } });
+      }
+  
+      if (toDate !== '') {
+        query.push({ $match: { createdAt: { $lte: new Date(toDate) } } });
+      }
+  
+      query.push({ $sort: { createdAt: -1 } });
+  
+      const documentQuery = [
+        ...query,
+        { $skip: parseInt(skip) },
+        { $limit: parseInt(limit) },
+        {
+            $project: {
+                username: 1,
+                firstName: 1,
+                lastName: 1,
+                fullName: 1,
+                email: 1,
+                password: 1,
+                photo: 1,
+                role: 1,
+                mobile: 1,
+                image: 1,
+                city: 1,
+                nationality: 1,
+                dob: 1,
+                country: 1,
+                qualification: 1,
+                school12th: 1,
+                englishTest: 1,
+                preferred: 1,
+            }
+        }
+      ];
+  
+      const overallQuery = [
+        ...query,
+        { $count: 'counts' }
+      ];
+  
+      const finalquery = [
+        {
+          $facet: {
+            overall: overallQuery,
+            documentdata: documentQuery
+          }
+        }
+      ];
+  
+      const userData = await User.aggregate(finalquery);
+      let data = userData[0].documentdata || [];
+      let fullCount = userData[0].overall[0] ? userData[0].overall[0].counts : 0;
+  
+      if (data.length > 0) {
+        res.json({
+          status: 1,
+          response: {
+            result: data,
+            fullcount: fullCount,
+            length: data.length,
+          }
+        });
+      } else {
+        res.json({
+          status: 0,
+          response: {
+            result: [],
+            fullcount: fullCount,
+            length: 0,
+          }
+        });
+      }
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ status: 0, message: "Internal server error" });
+    }
+  };
+
 
 module.exports = {
   signUp,
@@ -371,5 +477,6 @@ module.exports = {
   updateProfilePic,
   updateEnglishTest,
   updatePreferred,
-  updateSchool12th
+  updateSchool12th,
+  getAllUserList
 };

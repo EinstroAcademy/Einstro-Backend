@@ -52,7 +52,10 @@ const universitySchema =mongoose.Schema(
       },
       images:[String],
       isActive:{type:Boolean,default:true},
-      details:{type:String}
+      details:{type:String},
+      cost:{type:String},
+      scholarship:{type:String},
+      requirements:{type:String},
     },
     {
       timestamps: true,

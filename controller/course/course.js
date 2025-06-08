@@ -569,7 +569,7 @@ const getBranches = async(req,res)=>{
 const createUniversity =async (req,res)=>{
   try {
     const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
-    const { name,country,location,details,students,rank,costOfLiving } = req.body;
+    const { name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements } = req.body;
 
     let images=[]
     if(req.files.images){
@@ -582,7 +582,7 @@ const createUniversity =async (req,res)=>{
       let currency = JSON.parse(req.body.currency)
       let create = await University.create({
         name,
-        country,location,currency,uniId,images,details,students,rank,costOfLiving
+        country,location,currency,uniId,images,details,students,rank,costOfLiving,cost,scholarship,requirements
       });
 
       if (!create) {
@@ -597,31 +597,31 @@ const createUniversity =async (req,res)=>{
 
 const updateUniversity =async (req,res)=>{
   try {
-    const {_id,name,country,location,details,students,rank,costOfLiving } = req.body;
+    const {_id,name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements  } = req.body;
+    console.log(req.body)
     const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
 
-      if(req.body.removedImages&&req.body?.removedImages?.length>0){
-        let removedImages = JSON.parse(req.body.removedImages)
+    const removedImages = req.body.removedImages ? JSON.parse(req.body.removedImages) : [];
+
+      if(removedImages?.length>0){
 
        for(let img of removedImages){
-        unlinkAsync(img)
-        .then((resolved) => {
-         console.log('Photo removed')
-        })
-        .catch((error) => {
-          console.log('error', error);
-        });
+        try {
+          await unlinkAsync(img);
+          console.log('Photo removed:', img);
+        } catch (err) {
+          console.error('Error removing image:', img, err.message);
+        }
        }
-       
       }
 
       let updatedImages = JSON.parse(req.body.images)??[]
       let editCurrency =JSON.parse(req.body.currency)
-      if(req.files.newImages){
-        req.files.newImages.map((e) => {
-          updatedImages.push(getAttachment(e.destination, e.filename));
-        });
-      }
+     if (req.files && req.files.newImages && req.files.newImages.length > 0) {
+      req.files.newImages.forEach((e) => {
+        updatedImages.push(getAttachment(e.destination, e.filename));
+      });
+    }
 
 
       let uniId = transformSentence(name)
@@ -636,8 +636,14 @@ const updateUniversity =async (req,res)=>{
         details,
         students,
         costOfLiving,
-        images:updatedImages
-      }});
+        images:updatedImages,
+        cost,
+        scholarship,
+        requirements 
+      }},
+    { upsert: true, new: true });
+
+      console.log(update)
 
       if (!update) {
           return res.json({ status: 0, message: "University Not Updated" });
@@ -712,7 +718,10 @@ const getAllUniversity = async (req, res) => {
           students:1,
           rank:1,
           details:1,
-          costOfLiving:1
+          costOfLiving:1,
+          cost:1,
+          scholarship:1,
+          requirements:1
         }
       }
     ];

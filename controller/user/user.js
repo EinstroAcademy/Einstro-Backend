@@ -1,7 +1,8 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../../schema/user.schema");
-const fs = require('fs')
+const fs = require('fs');
+const Serial = require("../../schema/serial.schema");
 
 
 const signUp = async(req,res)=>{
@@ -464,6 +465,113 @@ const getAllUserList = async (req, res) => {
     }
   };
 
+const createStudent = async (req, res) => {
+    try {
+        const {
+            firstName,
+            middleName,
+            lastName,
+            dob,
+            firstLanguage,
+            country,
+            maritalStatus,
+            gender,
+            email,
+            passport,
+            passport_expiry_date,
+            address,
+            city,
+            state,
+            postalCode
+        } = req.body;
+
+        // ✅ 1. Check if email already exists
+        const existingEmail = await User.findOne({ email });
+        if (existingEmail) {
+            return res.status(400).json({ status: 0, message: "Email already exists" });
+        }
+
+        // ✅ 2. Check if passport number already exists
+        const existingPassport = await User.findOne({ passport });
+        if (existingPassport) {
+            return res.status(400).json({ status: 0, message: "Passport number already exists" });
+        }
+
+        // ✅ 3. Validate date of birth (minimum 17 years old)
+        const birthDate = new Date(dob);
+        const today = new Date();
+        const age = today.getFullYear() - birthDate.getFullYear();
+        const isOldEnough = age > 17 || (age === 17 && (
+            today.getMonth() > birthDate.getMonth() ||
+            (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate())
+        ));
+
+        if (!isOldEnough) {
+            return res.status(400).json({ status: 0, message: "Student must be at least 17 years old" });
+        }
+
+        // ✅ 4. Validate passport expiry date (must be future)
+        const passportExpiry = new Date(passport_expiry_date);
+        if (passportExpiry <= today) {
+            return res.status(400).json({ status: 0, message: "Passport expiry date must be in the future" });
+        }
+
+        // Generate student ID
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const datePrefix = `ST${yyyy}${mm}${dd}`;
+
+        let serialData = await Serial.findOne();
+        let studentId = '';
+        let newSerial = 1001;
+
+        if (!serialData) {
+            studentId = `${datePrefix}${newSerial}`;
+            serialData = await Serial.create({ serial: newSerial });
+        } else {
+            newSerial = serialData.serial + 1;
+            studentId = `${datePrefix}${newSerial}`;
+            await Serial.findByIdAndUpdate(
+                serialData._id,
+                { serial: newSerial },
+                { new: true }
+            );
+        }
+
+        // Create user
+        const createNew = await User.create({
+            firstName,
+            middleName,
+            lastName,
+            dob,
+            firstLanguage,
+            country,
+            maritalStatus,
+            gender,
+            email,
+            passport,
+            passport_expiry_date,
+            address,
+            city,
+            state,
+            postalCode,
+            studentId
+        });
+
+        if (!createNew) {
+            return res.json({ status: 0, message: "Student Not Created" });
+        }
+
+        res.json({ status: 1, message: "Student Created", studentId });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ status: 0, message: "Internal server error" });
+    }
+};
+
+
+
 
 module.exports = {
   signUp,
@@ -478,5 +586,6 @@ module.exports = {
   updateEnglishTest,
   updatePreferred,
   updateSchool12th,
-  getAllUserList
+  getAllUserList,
+  createStudent
 };

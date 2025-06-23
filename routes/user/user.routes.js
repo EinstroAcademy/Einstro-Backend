@@ -13,7 +13,13 @@ const {
   updatePreferred,
   updateSchool12th,
   getAllUserList,
-  createStudent
+  createStudent,
+  updateUserQualificationAdmin,
+  getStudentDetails,
+  updateUserSchoolAdmin,
+  createDocumentRecord,
+  removeUserQualificationAdmin,
+  removeUserSchoolAdmin
  
 } = require("../../controller/user/user");
 const { authorizedAdmin } = require("../../middleware/authAdmin");
@@ -38,5 +44,23 @@ router.post('/update/user/12th/details',authorizedClient,updateSchool12th)
 router.post('/update/user/preferred',authorizedClient,updatePreferred)
 router.post('/get/all/user/list',authorizedAdmin,getAllUserList)
 router.post('/admin/create/new/user',authorizedAdmin,createStudent)
-
+router.post('/admin/update/user/qualification',authorizedAdmin,updateUserQualificationAdmin)
+router.post('/admin/update/user/school',authorizedAdmin,updateUserSchoolAdmin)
+router.post('/admin/get/user',authorizedAdmin,getStudentDetails)
+router.post('/admin/user/upload/documents', 
+    authorizedAdmin,
+    uploadFile('./uploads/documents/').fields([
+        { name: 'class10', maxCount: 1 },
+        { name: 'class12', maxCount: 1 },
+        { name: 'degree', maxCount: 1 },
+        { name: 'aadhaarFront', maxCount: 1 },
+        { name: 'aadhaarBack', maxCount: 1 },
+        { name: 'passportFirst', maxCount: 1 },
+        { name: 'passportLast', maxCount: 1 },
+        { name: 'birthCertificate', maxCount: 1 }
+    ]),
+    createDocumentRecord
+);
+router.post('/admin/user/remove/qualification',authorizedAdmin,removeUserQualificationAdmin)
+router.post('/admin/user/remove/school',authorizedAdmin,removeUserSchoolAdmin)
 module.exports = router;

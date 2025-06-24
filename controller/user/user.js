@@ -167,7 +167,22 @@ const getUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
     try {
-        const { fullName, country, city, nationality, mobile, dob, userId } = req.body
+        const { firstName,
+            middleName,
+            lastName,
+            dob,
+            firstLanguage,
+            country,
+            maritalStatus,
+            gender,
+            email,
+            passport,
+            passport_expiry_date,
+            address,
+            city,
+            state,
+            postalCode,
+            userId } = req.body
 
         if (!userId) {
             return res.json({ status: 0, message: "No user ID" })
@@ -175,12 +190,21 @@ const updateUser = async (req, res) => {
 
         const updateUser = await User.findByIdAndUpdate({ _id: userId }, {
             $set: {
-                fullName,
-                country,
-                city,
-                nationality,
-                mobile,
-                dob
+                firstName,
+            middleName,
+            lastName,
+            dob,
+            firstLanguage,
+            country,
+            maritalStatus,
+            gender,
+            email,
+            passport,
+            passport_expiry_date,
+            address,
+            city,
+            state,
+            postalCode,
             }
         })
 
@@ -196,33 +220,61 @@ const updateUser = async (req, res) => {
 }
 
 const updateUserQualification = async (req, res) => {
-    try {
-        const { degree, country, university, cgpa_level, score, userId } = req.body
+   try {
+        const { degree, country, university, cgpa_level, score, medium, address, userId, course, _id } = req.body
 
         if (!userId) {
             return res.json({ status: 0, message: "No user ID" })
         }
 
-        const updateUser = await User.findByIdAndUpdate({ _id: userId }, {
-            $set: {
+        if (_id) {
+            const result = await User.updateOne(
+                { _id: userId, 'qualification._id': _id },
+                {
+                    $set: {
+                        'qualification.$.degree': degree,
+                        'qualification.$.country': country,
+                        'qualification.$.university': university,
+                        'qualification.$.cgpa_level': cgpa_level,
+                        'qualification.$.score': score,
+                        'qualification.$.medium': medium,
+                        'qualification.$.address': address,
+                        'qualification.$.course': course
+                    }
+                }
+            );
+
+            if (!result) {
+                return res.json({ status: 0, message: "Qualification is not updated" })
+            }
+
+            return res.json({ status: 1, message: 'Qualification Updated' })
+
+        }
+
+        const update = await User.findByIdAndUpdate({ _id: userId }, {
+            $push: {
                 qualification: {
                     degree,
                     country,
                     university,
+                    course,
                     cgpa_level,
-                    score
+                    score,
+                    medium,
+                    address,
                 }
             }
         })
 
-        if (!updateUser) {
-            return res.json({ state: 0, message: 'Not updated' })
+        if (!update) {
+            return res.json({ status: 0, message: "Qualification is not updated" })
         }
 
-        res.json({ status: 1, message: "User Updated" })
-
+        res.json({ status: 1, message: 'Qualification Updated' })
     } catch (error) {
-        console.log(error)
+        console.log(error);
+        res.status(500).json({ status: 0, message: "Internal server error" });
     }
 }
 
@@ -290,43 +342,75 @@ const updateEnglishTest = async (req, res) => {
 }
 
 const updateSchool12th = async (req, res) => {
-    try {
-        const { school,
-            boardOfEducation,
-            mediumOfInstruction,
-            yearsOfPassing,
-            subjectStudied,
-            totalMarks,
-            marksObtained,
-            percentage, userId } = req.body
+   try {
+        const {
+            grade,
+            name,
+            medium,
+            course,
+            address,
+            score,
+            cgpa_level,
+            from,
+            to,
+            userId,
+            _id
+        } = req.body
 
         if (!userId) {
             return res.json({ status: 0, message: "No user ID" })
         }
 
-        const updateUser = await User.findByIdAndUpdate({ _id: userId }, {
-            $set: {
-                school12th: {
-                    school,
-                    boardOfEducation,
-                    mediumOfInstruction,
-                    yearsOfPassing,
-                    subjectStudied,
-                    totalMarks,
-                    marksObtained,
-                    percentage
+        if (_id) {
+            const result = await User.updateOne(
+                { _id: userId, 'school._id': _id },
+                {
+                    $set: {
+                        'school.$.grade': grade,
+                        'school.$.name': name,
+                        'school.$.medium': medium,
+                        'school.$.cgpa_level': cgpa_level,
+                        'school.$.score': score,
+                        'school.$.from': from,
+                        'school.$.address': address,
+                        'school.$.course': course,
+                        'school.$.to': to,
+                    }
+                }
+            );
+
+            if (!result) {
+                return res.json({ status: 0, message: "School is not updated" })
+            }
+
+            return res.json({ status: 1, message: 'School Updated' })
+
+        }
+
+        const update = await User.findByIdAndUpdate({ _id: userId }, {
+            $push: {
+                school: {
+                    grade,
+                    name,
+                    medium,
+                    course,
+                    address,
+                    score,
+                    cgpa_level,
+                    from,
+                    to,
                 }
             }
         })
 
-        if (!updateUser) {
-            return res.json({ state: 0, message: 'Not updated' })
+        if (!update) {
+            return res.json({ status: 0, message: "School is not updated" })
         }
 
-        res.json({ status: 1, message: "User Updated" })
-
+        res.json({ status: 1, message: 'School Updated' })
     } catch (error) {
-        console.log(error)
+        console.log(error);
+        res.status(500).json({ status: 0, message: "Internal server error" });
     }
 }
 
@@ -844,130 +928,136 @@ const removeUserSchoolAdmin = async (req, res) => {
 
 
 const createDocumentRecord = async (req, res) => {
-    try {
-        const userId = req.body.userId; // From auth middleware
+  try {
+    const userId = req.body.userId; // From auth middleware
 
-        if(!userId){
-            return res.json({status:0,message:'UserId Required'})
-        }
-
-        const getAttachment = (path, name) => {
-    return encodeURI(path.substring(2) + name);
-};
-        
-        // Initialize document paths object
-        let documentPaths = {};
-        let verificationStatus = {};
-        
-        // Process each uploaded file if it exists
-        if (req.files) {
-            if (req.files.class10) {
-                documentPaths.class10 = getAttachment(
-                    req.files.class10[0].destination, 
-                    req.files.class10[0].filename
-                );
-                verificationStatus.class10 = 'pending';
-            }
-            
-            if (req.files.class12) {
-                documentPaths.class12 = getAttachment(
-                    req.files.class12[0].destination, 
-                    req.files.class12[0].filename
-                );
-                verificationStatus.class12 = 'pending';
-            }
-            
-            if (req.files.degree) {
-                documentPaths.degree = getAttachment(
-                    req.files.degree[0].destination, 
-                    req.files.degree[0].filename
-                );
-                verificationStatus.degree = 'pending';
-            }
-            
-            if (req.files.aadhaarFront) {
-                documentPaths.aadhaarFront = getAttachment(
-                    req.files.aadhaarFront[0].destination, 
-                    req.files.aadhaarFront[0].filename
-                );
-                verificationStatus.aadhaarFront = 'pending';
-            }
-            
-            if (req.files.aadhaarBack) {
-                documentPaths.aadhaarBack = getAttachment(
-                    req.files.aadhaarBack[0].destination, 
-                    req.files.aadhaarBack[0].filename
-                );
-                verificationStatus.aadhaarBack = 'pending';
-            }
-            
-            if (req.files.passportFirst) {
-                documentPaths.passportFirst = getAttachment(
-                    req.files.passportFirst[0].destination, 
-                    req.files.passportFirst[0].filename
-                );
-                verificationStatus.passportFirst = 'pending';
-            }
-            
-            if (req.files.passportLast) {
-                documentPaths.passportLast = getAttachment(
-                    req.files.passportLast[0].destination, 
-                    req.files.passportLast[0].filename
-                );
-                verificationStatus.passportLast = 'pending';
-            }
-            
-            if (req.files.birthCertificate) {
-                documentPaths.birthCertificate = getAttachment(
-                    req.files.birthCertificate[0].destination, 
-                    req.files.birthCertificate[0].filename
-                );
-                verificationStatus.birthCertificate = 'pending';
-            }
-        }
-
-        console.log('Document paths:', documentPaths);
-        console.log('Verification status:', verificationStatus);
-
-        // Update user document fields
-        const updateFields = {
-            uploadedOn: new Date(),
-            status: 'pending'
-        };
-
-        // Add document paths to update
-        Object.keys(documentPaths).forEach(key => {
-            updateFields[`documents.${key}`] = documentPaths[key];
-        });
-
-        // Add verification status to update
-        Object.keys(verificationStatus).forEach(key => {
-            updateFields[`verificationStatus.${key}`] = verificationStatus[key];
-        });
-
-        // Update user with new documents
-        const updatedUser = await User.findByIdAndUpdate(
-            userId,
-            { $set: updateFields },
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedUser) {
-            return res.json({ status: 0, message: "User not found or documents not uploaded" });
-        }
-
-        res.json({ 
-            status: 1, 
-            message: "Documents uploaded successfully",
-            userId: updatedUser._id,
-            uploadedDocuments: Object.keys(documentPaths).length,
-            documentPaths: documentPaths
-        });
-
-    } catch (error) {
-        console.log('Document upload error:', error);
-        res.json({ status: 0, message: "Error uploading documents", error: error.message });
+    if (!userId) {
+      return res.json({ status: 0, message: "UserId Required" });
     }
+
+    const getAttachment = (path, name) => {
+      return encodeURI(path.substring(2) + name);
+    };
+
+    // Initialize document paths object
+    let documentPaths = {};
+    let verificationStatus = {};
+
+    // Process each uploaded file if it exists
+    if (req.files) {
+      if (req.files.class10) {
+        documentPaths.class10 = getAttachment(
+          req.files.class10[0].destination,
+          req.files.class10[0].filename
+        );
+        verificationStatus.class10 = "pending";
+      }
+
+      if (req.files.class12) {
+        documentPaths.class12 = getAttachment(
+          req.files.class12[0].destination,
+          req.files.class12[0].filename
+        );
+        verificationStatus.class12 = "pending";
+      }
+
+      if (req.files.degree) {
+        documentPaths.degree = getAttachment(
+          req.files.degree[0].destination,
+          req.files.degree[0].filename
+        );
+        verificationStatus.degree = "pending";
+      }
+
+      if (req.files.aadhaarFront) {
+        documentPaths.aadhaarFront = getAttachment(
+          req.files.aadhaarFront[0].destination,
+          req.files.aadhaarFront[0].filename
+        );
+        verificationStatus.aadhaarFront = "pending";
+      }
+
+      if (req.files.aadhaarBack) {
+        documentPaths.aadhaarBack = getAttachment(
+          req.files.aadhaarBack[0].destination,
+          req.files.aadhaarBack[0].filename
+        );
+        verificationStatus.aadhaarBack = "pending";
+      }
+
+      if (req.files.passportFirst) {
+        documentPaths.passportFirst = getAttachment(
+          req.files.passportFirst[0].destination,
+          req.files.passportFirst[0].filename
+        );
+        verificationStatus.passportFirst = "pending";
+      }
+
+      if (req.files.passportLast) {
+        documentPaths.passportLast = getAttachment(
+          req.files.passportLast[0].destination,
+          req.files.passportLast[0].filename
+        );
+        verificationStatus.passportLast = "pending";
+      }
+
+      if (req.files.birthCertificate) {
+        documentPaths.birthCertificate = getAttachment(
+          req.files.birthCertificate[0].destination,
+          req.files.birthCertificate[0].filename
+        );
+        verificationStatus.birthCertificate = "pending";
+      }
+    }
+
+    console.log("Document paths:", documentPaths);
+    console.log("Verification status:", verificationStatus);
+
+    // Update user document fields
+    const updateFields = {
+      uploadedOn: new Date(),
+      status: "pending",
+    };
+
+    // Add document paths to update
+    Object.keys(documentPaths).forEach((key) => {
+      updateFields[`documents.${key}`] = documentPaths[key];
+    });
+
+    // Add verification status to update
+    Object.keys(verificationStatus).forEach((key) => {
+      updateFields[`verificationStatus.${key}`] = verificationStatus[key];
+    });
+
+    // Update user with new documents
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.json({
+        status: 0,
+        message: "User not found or documents not uploaded",
+      });
+    }
+
+    res.json({
+      status: 1,
+      message: "Documents uploaded successfully",
+      userId: updatedUser._id,
+      uploadedDocuments: Object.keys(documentPaths).length,
+      documentPaths: documentPaths,
+    });
+  } catch (error) {
+    console.log("Document upload error:", error);
+    res.json({
+      status: 0,
+      message: "Error uploading documents",
+      error: error.message,
+    });
+  }
 };
 
 

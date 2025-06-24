@@ -40,8 +40,22 @@ router.post('/update/profile/pic',authorizedClient,
     uploadFile('./uploads/profilepic/').fields([{ name: 'image', maxCount: 1 }]),
     updateProfilePic)
 router.post('/update/user/english/test',authorizedClient,updateEnglishTest)
-router.post('/update/user/12th/details',authorizedClient,updateSchool12th)
+router.post('/update/user/school/details',authorizedClient,updateSchool12th)
 router.post('/update/user/preferred',authorizedClient,updatePreferred)
+router.post('/update/user/upload/documents', 
+    authorizedClient,
+    uploadFile('./uploads/documents/').fields([
+        { name: 'class10', maxCount: 1 },
+        { name: 'class12', maxCount: 1 },
+        { name: 'degree', maxCount: 1 },
+        { name: 'aadhaarFront', maxCount: 1 },
+        { name: 'aadhaarBack', maxCount: 1 },
+        { name: 'passportFirst', maxCount: 1 },
+        { name: 'passportLast', maxCount: 1 },
+        { name: 'birthCertificate', maxCount: 1 }
+    ]),
+    createDocumentRecord
+);
 router.post('/get/all/user/list',authorizedAdmin,getAllUserList)
 router.post('/admin/create/new/user',authorizedAdmin,createStudent)
 router.post('/admin/update/user/qualification',authorizedAdmin,updateUserQualificationAdmin)

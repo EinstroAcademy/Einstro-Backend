@@ -3,6 +3,149 @@ const jwt = require("jsonwebtoken");
 const User = require("../../schema/user.schema");
 const fs = require('fs');
 const Serial = require("../../schema/serial.schema");
+const { Course } = require("../../schema/course.schema");
+const { University } = require("../../schema/subject.schema");
+
+
+
+//
+// Profile Completion Percentage Calculator
+
+// Helper function to check if a value exists and is not empty
+const isFieldComplete = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return !isNaN(value);
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+};
+
+// Calculate General Info completion (30% weight)
+const calculateGeneralInfoCompletion = (user) => {
+  const requiredFields = [
+    'firstName', 'lastName', 'dob', 'email', 'mobile', 
+    'gender', 'nationality', 'address', 'city', 'country', 
+    'state', 'postalCode', 'passport', 'passport_expiry_date'
+  ];
+  
+  const completedFields = requiredFields.filter(field => 
+    isFieldComplete(user[field])
+  ).length;
+  
+  return (completedFields / requiredFields.length) * 100;
+};
+
+// Calculate Qualification completion (20% weight)
+const calculateQualificationCompletion = (user) => {
+  if (!user.qualification || user.qualification.length === 0) {
+    return 0;
+  }
+  
+  const requiredFields = ['degree', 'country', 'university', 'score', 'course'];
+  let totalFields = 0;
+  let completedFields = 0;
+  
+  user.qualification.forEach(qual => {
+    requiredFields.forEach(field => {
+      totalFields++;
+      if (isFieldComplete(qual[field])) {
+        completedFields++;
+      }
+    });
+  });
+  
+  return totalFields > 0 ? (completedFields / totalFields) * 100 : 0;
+};
+
+// Calculate School completion (20% weight)
+const calculateSchoolCompletion = (user) => {
+  if (!user.school || user.school.length === 0) {
+    return 0;
+  }
+  
+  const requiredFields = ['grade', 'name', 'course', 'score', 'from', 'to'];
+  let totalFields = 0;
+  let completedFields = 0;
+  
+  user.school.forEach(school => {
+    requiredFields.forEach(field => {
+      totalFields++;
+      if (isFieldComplete(school[field])) {
+        completedFields++;
+      }
+    });
+  });
+  
+  return totalFields > 0 ? (completedFields / totalFields) * 100 : 0;
+};
+
+// Calculate English Test completion (15% weight)
+const calculateEnglishTestCompletion = (user) => {
+  if (!user.englishTest) {
+    return 0;
+  }
+  
+  const requiredFields = ['test', 'overallScore', 'listening', 'reading', 'speaking', 'writing'];
+  
+  const completedFields = requiredFields.filter(field => 
+    isFieldComplete(user.englishTest[field])
+  ).length;
+  
+  return (completedFields / requiredFields.length) * 100;
+};
+
+// Calculate Documents completion (15% weight)
+const calculateDocumentsCompletion = (user) => {
+  if (!user.documents) {
+    return 0;
+  }
+  
+  const requiredDocuments = [
+    'class10', 'class12', 'degree', 'aadhaarFront', 
+    'aadhaarBack', 'passportFirst', 'passportLast'
+  ];
+  
+  const uploadedDocuments = requiredDocuments.filter(doc => 
+    isFieldComplete(user.documents[doc])
+  ).length;
+  
+  return (uploadedDocuments / requiredDocuments.length) * 100;
+};
+
+// Main function to calculate overall profile completion
+const calculateProfileCompletion = (user) => {
+  const weights = {
+    generalInfo: 0.30,
+    qualification: 0.20,
+    school: 0.20,
+    englishTest: 0.15,
+    documents: 0.15
+  };
+  
+  const sectionCompletions = {
+    generalInfo: calculateGeneralInfoCompletion(user),
+    qualification: calculateQualificationCompletion(user),
+    school: calculateSchoolCompletion(user),
+    englishTest: calculateEnglishTestCompletion(user),
+    documents: calculateDocumentsCompletion(user)
+  };
+  
+  const overallCompletion = Object.keys(weights).reduce((total, section) => {
+    return total + (sectionCompletions[section] * weights[section]);
+  }, 0);
+  
+  return {
+    overall: Math.round(overallCompletion),
+    sections: {
+      generalInfo: Math.round(sectionCompletions.generalInfo),
+      qualification: Math.round(sectionCompletions.qualification),
+      school: Math.round(sectionCompletions.school),
+      englishTest: Math.round(sectionCompletions.englishTest),
+      documents: Math.round(sectionCompletions.documents)
+    }
+  };
+};
+
 
 
 const signUp = async (req, res) => {
@@ -155,8 +298,16 @@ const getUser = async (req, res) => {
                 } else {
 
                     let mainUser = await User.findOne({ email: decoded.email })
+                      .populate(
+                        "applications.courseId",
+                      )
+                      .populate(
+                        "applications.universityId",
+                      );
+                    const completion = calculateProfileCompletion(mainUser);
 
-                    res.json({ status: 1, user: mainUser })
+
+                    res.json({ status: 1, user: mainUser,completion})
                 }
             });
         }
@@ -811,12 +962,19 @@ const getStudentDetails = async (req, res) => {
             return res.json({ status: 0, message: "No user ID" })
         }
 
-        const getUser = await User.findOne({ _id: userId })
+        const getUser = await User.findOne({ _id: userId }) .populate(
+                        "applications.courseId",
+                      )
+                      .populate(
+                        "applications.universityId",
+                      );
 
         if (!getUser) {
             return res.json({ status: 0, message: "No user Found" })
         }
-        res.json({ status: 1, student: getUser })
+
+        const completion = calculateProfileCompletion(getUser);
+        res.json({ status: 1, student: getUser ,completion })
     } catch (error) {
         console.log(error);
         res.status(500).json({ status: 0, message: "Internal server error" });
@@ -1062,6 +1220,168 @@ const createDocumentRecord = async (req, res) => {
 
 
 
+const profileCompletionPercentage = async(req,res)=>{
+    try {
+    const userId  = req.params.mainUserId;
+    
+    // Fetch user from database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Calculate completion percentage
+    const completion = calculateProfileCompletion(user);
+    
+    res.json({
+      success: true,
+      userId: user._id,
+      completion
+    });
+  } catch (error) {
+    console.error('Error calculating profile completion:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+const generateApplicationNumber = () => {
+  const timestamp = Date.now().toString();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `APP-${timestamp}-${random}`.toUpperCase();
+};
+
+const applyUser =async(req,res)=>{
+    try {
+    const {
+      userId,
+      courseId,
+      universityId,
+      intake,
+      personalStatement,
+      additionalDocuments = []
+    } = req.body;
+
+    // Validation
+    if (!userId || !courseId || !universityId ) {
+      return res.json({
+        success: false,
+        status:0,
+        message: 'Select Course/University'
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.json({
+        success: false,
+        status:0,
+        message: 'User not found'
+      });
+    }
+
+    // Check if course and university exist
+    const [course, university] = await Promise.all([
+      Course.findById(courseId),
+      University.findById(universityId)
+    ]);
+
+    if (!course) {
+      return res.json({
+        success: false,
+        status:0,
+        message: 'Course not found'
+      });
+    }
+
+    if (!university) {
+      return res.json({
+        success: false,
+        status:0,
+        message: 'University not found'
+      });
+    }
+
+    // Check if user already applied for this course
+    const existingApplication = user.applications?.find(
+      app => app.courseId.toString() === courseId && 
+             app.universityId.toString() === universityId
+    );
+
+    if (existingApplication) {
+      return res.json({
+        success: false,
+        status:0,
+        message: 'You have already applied for this course at this university'
+      });
+    }
+
+    // Create new application
+    const newApplication = {
+      courseId,
+      universityId,
+      appliedDate: new Date(),
+      status: 'pending',
+      applicationNumber: generateApplicationNumber(),
+      intake,
+      tuitionFees: course.fees || 0,
+      currency: course.currency || 'USD',
+      personalStatement,
+      additionalDocuments: additionalDocuments?.map(doc => ({
+        ...doc,
+        uploadedDate: new Date()
+      })),
+      applicationDeadline: course?.applicationDeadline?? '',
+      statusHistory: [{
+        status: 'pending',
+        updatedDate: new Date(),
+        updatedBy: 'System',
+        remarks: 'Application submitted'
+      }],
+      lastUpdated: new Date()
+    };
+
+    // Add application to user's applications array
+    if (!user.applications) {
+      user.applications = [];
+    }
+    user.applications.push(newApplication);
+
+    // Save user
+    await user.save();
+
+    // Get the newly created application with populated data
+    const updatedUser = await User.findById(userId)
+      .populate('applications.courseId', 'name duration degree level')
+      .populate('applications.universityId', 'name country city');
+
+    const createdApplication = updatedUser.applications[updatedUser.applications.length - 1];
+
+    res.json({
+      success: true,
+      status:1,
+      message: 'Application submitted successfully',
+      data: {
+        applicationNumber: createdApplication.applicationNumber,
+        application: createdApplication,
+        course: createdApplication.courseId,
+        university: createdApplication.universityId
+      }
+    });
+
+  } catch (error) {
+    console.error('Error applying for course:', error);
+    res.json({
+      success: false,
+      status:0,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+}
+
+
+
 
 module.exports = {
     signUp,
@@ -1083,5 +1403,7 @@ module.exports = {
     updateUserSchoolAdmin,
     createDocumentRecord,
     removeUserQualificationAdmin,
-    removeUserSchoolAdmin
+    removeUserSchoolAdmin,
+    profileCompletionPercentage,
+    applyUser
 };

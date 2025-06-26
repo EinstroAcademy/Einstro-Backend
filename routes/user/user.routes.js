@@ -21,7 +21,8 @@ const {
   removeUserQualificationAdmin,
   removeUserSchoolAdmin,
   profileCompletionPercentage,
-  applyUser
+  applyUser,
+  removeUserTestAdmin
  
 } = require("../../controller/user/user");
 const { authorizedAdmin } = require("../../middleware/authAdmin");
@@ -79,6 +80,9 @@ router.post('/admin/user/upload/documents',
 );
 router.post('/admin/user/remove/qualification',authorizedAdmin,removeUserQualificationAdmin)
 router.post('/admin/user/remove/school',authorizedAdmin,removeUserSchoolAdmin)
+router.post('/admin/user/remove/test',authorizedAdmin,removeUserTestAdmin)
+router.post('/user/remove/test',authorizedClient,removeUserTestAdmin)
 router.post('/user/profile/completed/percentage',authorizedClient,profileCompletionPercentage)
 router.post('/user/apply/university/course',authorizedClient,applyUser)
+router.post('/admin/update/user/english/test',authorizedAdmin,updateEnglishTest)
 module.exports = router;

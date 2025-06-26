@@ -372,7 +372,7 @@ const updateUser = async (req, res) => {
 
 const updateUserQualification = async (req, res) => {
    try {
-        const { degree, country, university, cgpa_level, score, medium, address, userId, course, _id } = req.body
+        const { degree, country, university, cgpa_level, score, medium, address, userId, course, _id,from,to} = req.body
 
         if (!userId) {
             return res.json({ status: 0, message: "No user ID" })
@@ -390,7 +390,9 @@ const updateUserQualification = async (req, res) => {
                         'qualification.$.score': score,
                         'qualification.$.medium': medium,
                         'qualification.$.address': address,
-                        'qualification.$.course': course
+                        'qualification.$.course': course,
+                        'qualification.$.from': from,
+                        'qualification.$.to': to,
                     }
                 }
             );
@@ -414,6 +416,8 @@ const updateUserQualification = async (req, res) => {
                     score,
                     medium,
                     address,
+                    from,
+                    to
                 }
             }
         })
@@ -462,30 +466,55 @@ const updateProfilePic = async (req, res) => {
 
 const updateEnglishTest = async (req, res) => {
     try {
-        const { test, overallScore, listening, speaking, reading, writing, userId } = req.body
+        const { test, overallScore, listening, speaking, reading, writing,_id, userId,exam_date} = req.body
 
         if (!userId) {
             return res.json({ status: 0, message: "No user ID" })
         }
 
-        const updateUser = await User.findByIdAndUpdate({ _id: userId }, {
-            $set: {
+        if(_id){
+             const result = await User.updateOne(
+                { _id: userId, 'englishTest._id': _id },
+                {
+                    $set: {
+                    "englishTest.$.test": test,
+                     "englishTest.$.overallScore":overallScore,
+                    "englishTest.$.listening":listening,
+                    "englishTest.$.speaking":speaking,
+                    "englishTest.$.reading":reading,
+                    "englishTest.$.writing":writing,
+                    "englishTest.$.exam_date":exam_date,
+                    }
+                }
+            );
+
+            if (!result) {
+                return res.json({ status: 0, message: "English Test is not updated" })
+            }
+
+            return res.json({ status: 1, message: 'English Test Updated' })
+        }
+
+        const update = await User.findByIdAndUpdate({ _id: userId }, {
+            $push: {
                 englishTest: {
-                    test,
+                   test,
                     overallScore,
                     listening,
                     speaking,
                     reading,
-                    writing
+                    writing,
+                    exam_date,
                 }
             }
         })
 
-        if (!updateUser) {
-            return res.json({ state: 0, message: 'Not updated' })
+        if (!update) {
+            return res.json({ status: 0, message: "English Test is not updated" })
         }
 
-        res.json({ status: 1, message: "User Updated" })
+        res.json({ status: 1, message: 'English Test Updated' })
+
 
     } catch (error) {
         console.log(error)
@@ -867,7 +896,7 @@ const createStudent = async (req, res) => {
 
 const updateUserQualificationAdmin = async (req, res) => {
     try {
-        const { degree, country, university, cgpa_level, score, medium, address, userId, course, _id } = req.body
+        const { degree, country, university, cgpa_level, score, medium, address, userId, course, _id,from,to } = req.body
 
         if (!userId) {
             return res.json({ status: 0, message: "No user ID" })
@@ -885,7 +914,9 @@ const updateUserQualificationAdmin = async (req, res) => {
                         'qualification.$.score': score,
                         'qualification.$.medium': medium,
                         'qualification.$.address': address,
-                        'qualification.$.course': course
+                        'qualification.$.course': course,
+                        'qualification.$.from': from,
+                        'qualification.$.to': to
                     }
                 }
             );
@@ -909,6 +940,8 @@ const updateUserQualificationAdmin = async (req, res) => {
                     score,
                     medium,
                     address,
+                    from,
+                    to
                 }
             }
         })
@@ -1077,6 +1110,36 @@ const removeUserSchoolAdmin = async (req, res) => {
         }
 
         res.json({ status: 1, message: "School removed successfully" });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ status: 0, message: "Internal server error" });
+    }
+};
+
+
+const removeUserTestAdmin = async (req, res) => {
+    try {
+        const { userId, testId } = req.body;
+
+        if (!userId || !testId) {
+            return res.json({ status: 0, message: "Missing userId or testId" });
+        }
+
+        const update = await User.updateOne(
+            { _id: userId },
+            {
+                $pull: {
+                    englishTest: { _id: testId }
+                }
+            }
+        );
+
+        if (update.modifiedCount === 0) {
+            return res.json({ status: 0, message: "Test not found or already removed" });
+        }
+
+        res.json({ status: 1, message: "test removed successfully" });
 
     } catch (error) {
         console.log(error);
@@ -1405,5 +1468,6 @@ module.exports = {
     removeUserQualificationAdmin,
     removeUserSchoolAdmin,
     profileCompletionPercentage,
-    applyUser
+    applyUser,
+    removeUserTestAdmin
 };

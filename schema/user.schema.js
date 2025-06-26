@@ -41,7 +41,9 @@ const userSchema = mongoose.Schema(
         score: { type: String },
         medium: { type: String },
         address: { type: String },
-        course: { type: String }
+        course: { type: String },
+        from: { type: String },
+        to: { type: String },
       }
     ],
     school: [
@@ -57,14 +59,15 @@ const userSchema = mongoose.Schema(
         to: { type: String },
       }
     ],
-    englishTest: {
+    englishTest:[ {
       test: { type: String },
       overallScore: { type: String },
       listening: { type: String },
       reading: { type: String },
       speaking: { type: String },
       writing: { type: String },
-    },
+      exam_date:{type:Date}
+    }],
     preferred: {
       destination: { type: String },
       degree: { type: String },

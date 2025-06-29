@@ -56,6 +56,9 @@ const universitySchema =mongoose.Schema(
       cost:{type:String},
       scholarship:{type:String},
       requirements:{type:String},
+      intake_month:[
+        {type:String}
+      ]
     },
     {
       timestamps: true,

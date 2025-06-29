@@ -569,7 +569,7 @@ const getBranches = async(req,res)=>{
 const createUniversity =async (req,res)=>{
   try {
     const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
-    const { name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements } = req.body;
+    const { name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements,intake_month } = req.body;
 
     let images=[]
     if(req.files.images){
@@ -580,10 +580,10 @@ const createUniversity =async (req,res)=>{
 
       let uniId=transformSentence(name)
       let currency = JSON.parse(req.body.currency)
-      let create = await University.create({
-        name,
-        country,location,currency,uniId,images,details,students,rank,costOfLiving,cost,scholarship,requirements
-      });
+    let create = await University.create({
+      name,
+      country, location, currency, uniId, images, details, students, rank, costOfLiving, cost, scholarship, requirements, intake_month: JSON.parse(intake_month)
+    });
 
       if (!create) {
         return res.json({ status: 0, message: "University Not Created" });
@@ -597,8 +597,8 @@ const createUniversity =async (req,res)=>{
 
 const updateUniversity =async (req,res)=>{
   try {
-    const {_id,name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements  } = req.body;
-    console.log(req.body)
+    const {_id,name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements,intake_month } = req.body;
+   console.log()
     const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
 
     const removedImages = req.body.removedImages ? JSON.parse(req.body.removedImages) : [];
@@ -639,7 +639,8 @@ const updateUniversity =async (req,res)=>{
         images:updatedImages,
         cost,
         scholarship,
-        requirements 
+        requirements,
+        intake_month: JSON.parse(intake_month)
       }},
     { upsert: true, new: true });
 
@@ -721,7 +722,8 @@ const getAllUniversity = async (req, res) => {
           costOfLiving:1,
           cost:1,
           scholarship:1,
-          requirements:1
+          requirements:1,
+          intake_month:1
         }
       }
     ];

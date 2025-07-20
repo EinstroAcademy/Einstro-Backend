@@ -142,7 +142,7 @@ const getAllBlogList = async (req, res) => {
 
 const getAllClientBlogList = async (req, res) => {
     try {
-      const { search = '', active = '', fromDate = '', toDate = '', limit = 10, skip = 0 } = req.body;
+      const { search = '', active = '', fromDate = '', toDate = '', limit = 4, skip = 0 } = req.body;
       let query = [];
   
       if (search !== '') {
@@ -175,6 +175,9 @@ const getAllClientBlogList = async (req, res) => {
         ...query,
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) },
+        {
+          $sort : {createdAt :-1}
+        },
         {
           $project: {
             title: 1,
@@ -237,6 +240,7 @@ const getAllClientBlogList = async (req, res) => {
 const getBlogDetails =async(req,res)=>{
     try {
         const {blogId}=req.body
+        console.log(req.body)
         if(!blogId){
             return res.json({status:0,message:"Blog ID required"})
         }

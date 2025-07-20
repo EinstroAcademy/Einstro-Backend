@@ -640,7 +640,7 @@ const updateUniversity =async (req,res)=>{
         cost,
         scholarship,
         requirements,
-        intake_month: JSON.parse(intake_month)
+        // intake_month: JSON.parse(intake_month)
       }},
     { upsert: true, new: true });
 

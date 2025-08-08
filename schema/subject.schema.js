@@ -44,6 +44,9 @@ const universitySchema =mongoose.Schema(
       rank:{type:String},
       students:{type:String},
       costOfLiving:{type:String},
+      startingFee:{type:String},
+      englishTests:[{type:String}],
+      acceptanceRate:{type:String},
       currency:{
         country:{type:String},
         symbol:{type:String},

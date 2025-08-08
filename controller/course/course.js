@@ -566,69 +566,154 @@ const getBranches = async(req,res)=>{
     }
 }
 
-const createUniversity =async (req,res)=>{
+const createUniversity = async (req, res) => {
   try {
     const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
-    const { name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements,intake_month } = req.body;
+    const {
+      name,
+      country,
+      location,
+      details,
+      students,
+      rank,
+      costOfLiving,
+      cost,
+      scholarship,
+      requirements,
+      intake_month,
+      startingFee,
+      englishTests,
+      acceptanceRate
+    } = req.body;
 
-    let images=[]
-    if(req.files.images){
+    let images = [];
+    if (req.files.images) {
       req.files.images.map((e) => {
         images.push(getAttachment(e.destination, e.filename));
       });
     }
 
-      let uniId=transformSentence(name)
-      let currency = JSON.parse(req.body.currency)
+    let uniId = transformSentence(name);
+    let currency = JSON.parse(req.body.currency);
+
+    // Safe parse intake_month
+    let intakeMonthParsed = [];
+    if (intake_month) {
+      try {
+        intakeMonthParsed = JSON.parse(intake_month);
+        if (!Array.isArray(intakeMonthParsed)) intakeMonthParsed = [];
+      } catch (e) {
+        intakeMonthParsed = [];
+      }
+    }
+
+    // Safe parse englishTest
+    let englishTestParsed = [];
+    if (englishTests) {
+      try {
+        englishTestParsed = JSON.parse(englishTests);
+        if (!Array.isArray(englishTestParsed)) englishTestParsed = [];
+      } catch (e) {
+        englishTestParsed = [];
+      }
+    }
+
     let create = await University.create({
       name,
-      country, location, currency, uniId, images, details, students, rank, costOfLiving, cost, scholarship, requirements, intake_month: JSON.parse(intake_month)
+      country,
+      location,
+      currency,
+      uniId,
+      images,
+      details,
+      students,
+      rank,
+      costOfLiving,
+      cost,
+      scholarship,
+      requirements,
+      intake_month: intakeMonthParsed,
+      startingFee,
+      englishTests: englishTestParsed,
+      acceptanceRate
     });
 
-      if (!create) {
-        return res.json({ status: 0, message: "University Not Created" });
-      }
+    if (!create) {
+      return res.json({ status: 0, message: "University Not Created" });
+    }
 
-      res.json({ status: 1, message: "UNiversity created" });
+    res.json({ status: 1, message: "University created" });
   } catch (error) {
-      console.log(error)
+    console.log(error);
+    res.status(500).json({ status: 0, message: "Internal Server Error" });
   }
-}
+};
 
-const updateUniversity =async (req,res)=>{
+const updateUniversity = async (req, res) => {
   try {
-    const {_id,name,country,location,details,students,rank,costOfLiving,cost,scholarship,requirements,intake_month } = req.body;
-   console.log()
+    const { _id, name, country, location, details, students, rank, costOfLiving, cost, scholarship, requirements, intake_month, startingFee, englishTests,acceptanceRate} = req.body;
+    console.log(englishTests)
     const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
 
     const removedImages = req.body.removedImages ? JSON.parse(req.body.removedImages) : [];
 
-      if(removedImages?.length>0){
+    if (removedImages?.length > 0) {
 
-       for(let img of removedImages){
+      for (let img of removedImages) {
         try {
           await unlinkAsync(img);
           console.log('Photo removed:', img);
         } catch (err) {
           console.error('Error removing image:', img, err.message);
         }
-       }
       }
+    }
 
-      let updatedImages = JSON.parse(req.body.images)??[]
-      let editCurrency =JSON.parse(req.body.currency)
-     if (req.files && req.files.newImages && req.files.newImages.length > 0) {
+    let updatedImages = [];
+    if (req.body.images) {
+      try {
+        updatedImages = JSON.parse(req.body.images);
+      } catch (e) {
+        updatedImages = [];
+      }
+    }
+    let editCurrency = {};
+    if (req.body.currency) {
+      try {
+        editCurrency = JSON.parse(req.body.currency);
+      } catch (e) {
+        editCurrency = {};
+      }
+    }
+    if (req.files && req.files.newImages && req.files.newImages.length > 0) {
       req.files.newImages.forEach((e) => {
         updatedImages.push(getAttachment(e.destination, e.filename));
       });
     }
 
+    let uniId = transformSentence(name);
 
-      let uniId = transformSentence(name)
+    let intakeMonthParsed = [];
+    if (intake_month) {
+      try {
+        intakeMonthParsed = JSON.parse(intake_month);
+      } catch (e) {
+        intakeMonthParsed = [];
+      }
+    }
+    let englishTestParsed = [];
+    if (englishTests) {
+      try {
+        englishTestParsed = JSON.parse(englishTests);
+      } catch (e) {
+        englishTestParsed = [];
+      }
+    }
 
-      let update = await University.findByIdAndUpdate({_id:_id},{$set:{
+    let update = await University.findByIdAndUpdate({ _id: _id }, {
+      $set: {
         name,
-        currency:editCurrency,
+        currency: editCurrency,
         location,
         country,
         uniId,
@@ -636,23 +721,26 @@ const updateUniversity =async (req,res)=>{
         details,
         students,
         costOfLiving,
-        images:updatedImages,
+        images: updatedImages,
         cost,
         scholarship,
         requirements,
-        // intake_month: JSON.parse(intake_month)
-      }},
-    { upsert: true, new: true });
+        startingFee,
+        intake_month: intakeMonthParsed,
+        englishTests: englishTestParsed,
+        acceptanceRate
+      }
+    },
+      { upsert: true, new: true });
 
-      console.log(update)
 
-      if (!update) {
-          return res.json({ status: 0, message: "University Not Updated" });
-        }
+    if (!update) {
+      return res.json({ status: 0, message: "University Not Updated" });
+    }
 
-      res.json({status:1,message:"University Updated"})
+    res.json({ status: 1, message: "University Updated" })
   } catch (error) {
-      console.log(error)
+    console.log(error)
   }
 }
 
@@ -723,7 +811,10 @@ const getAllUniversity = async (req, res) => {
           cost:1,
           scholarship:1,
           requirements:1,
-          intake_month:1
+          intake_month:1,
+          startingFee:1,
+          englishTests:1,
+          acceptanceRate:1
         }
       }
     ];
@@ -824,9 +915,9 @@ const getAllSearchList = async (req, res) => {
     const universityIds = universityMatches.map(u => u._id);
 
     // Dynamic limits
-    const courseLimit = (!filterBy || filterBy === 'courses') ? (filterBy ? 50 : 3) : 0;
-    const universityLimit = (!filterBy || filterBy === 'universities') ? (filterBy ? 50 : 3) : 0;
-    const subjectLimit = (!filterBy || filterBy === 'subjects') ? (filterBy ? 50 : 3) : 0;
+    const courseLimit = (!filterBy || filterBy === 'courses') ? (filterBy ? 50 : 10) : 0;
+    const universityLimit = (!filterBy || filterBy === 'universities') ? (filterBy ? 50 : 10) : 0;
+    const subjectLimit = (!filterBy || filterBy === 'subjects') ? (filterBy ? 50 : 10) : 0;
 
     // Courses Aggregate
     let Coursequery=[

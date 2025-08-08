@@ -338,6 +338,7 @@ const updateUser = async (req, res) => {
         if (!userId) {
             return res.json({ status: 0, message: "No user ID" })
         }
+        console.log(req.body)
 
         const updateUser = await User.findByIdAndUpdate({ _id: userId }, {
             $set: {

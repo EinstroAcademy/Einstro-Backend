@@ -937,6 +937,7 @@ const getAllSearchList = async (req, res) => {
             { subjectId: { $in: subjectIds } },
             { branchId: { $in: branchIds } },
             { universityId: { $in: universityIds } },
+            { "universityId.name": searchRegex },
           ]
         }
       },

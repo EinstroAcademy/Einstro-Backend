@@ -1,5 +1,5 @@
 const { response } = require("express");
-const { Course } = require("../../schema/course.schema");
+const { Course, PopularCourse } = require("../../schema/course.schema");
 const { Subject, Branch, SubjectBranch, University } = require("../../schema/subject.schema");
 const fs = require('fs');
 const { promisify } = require('util');
@@ -530,9 +530,9 @@ const clientSideBranchList =async(req,res)=>{
 
   const getCourseDetails = async(req,res)=>{
     try {
-      const {courseId}=req.body
+      const {courseId,_id}=req.body
 
-      const courseDetails = await Course.findOne({courseId:courseId}).populate('universityId')
+      const courseDetails = await Course.findOne({courseId:courseId,_id:_id}).populate('universityId')
       if(!courseDetails){
         return res.json({status:0,message:"Course not found"})
       }
@@ -1110,7 +1110,7 @@ const getUniversityCourseList =async(req,res)=>{
         return res.json({status:0,message:"No University Found"})
       }
 
-      const courseList = await Course.find({universityId:universityDetails._id}).populate('universityId').limit(2)
+      const courseList = await Course.find({universityId:universityDetails._id}).populate('universityId')
 
       if(!courseList){
         return res.json({status:0,message:"No Course List Found"})
@@ -1144,6 +1144,40 @@ const getCountryUniversity = async(req,res)=>{
 }
 
 
+// Popular Courses
+
+const createPopularCourse = async (req, res) => {
+  try {
+    // check name
+    const { name } = req.body;
+    if (!name || name.trim() === "") {
+      return res.status(400).json({ status: 0, message: "Name is required" });
+    }
+
+    // check file
+    if (!req.files || !req.files.image || req.files.image.length === 0) {
+      return res.status(400).json({ status: 0, message: "Image is required" });
+    }
+
+    const getAttachment = (path, filename) => encodeURI(path.substring(2) + filename);
+    const image = getAttachment(req.files.image[0].destination, req.files.image[0].filename);
+
+    let create = await PopularCourse.create({ name, image });
+
+    if (!create) {
+      return res.status(500).json({ status: 0, message: "Popular course not created" });
+    }
+
+    res.json({ status: 1, message: "Popular Course created", data: create });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 0, message: "Server error", error: error.message });
+  }
+};
+
+
+
 module.exports = {
   createSubject,
   createBranch,
@@ -1172,4 +1206,5 @@ module.exports = {
   getAllSearchList,
   getUniversityCourseList,
   getCountryUniversity,
+  createPopularCourse
 };

@@ -25,6 +25,19 @@ const courseSchema = mongoose.Schema(
   }
 ); 
 
-const Course = mongoose.model('course',courseSchema)
+const popularCourseSchema = mongoose.Schema(
+  {
+    name: { type: String },
+    image:{type:String},
+    isActive:{type:Boolean,default:true}
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+  }
+); 
 
-module.exports={Course}
+const Course = mongoose.model('course',courseSchema)
+const PopularCourse = mongoose.model('popular_course',popularCourseSchema)
+
+module.exports={Course,PopularCourse}

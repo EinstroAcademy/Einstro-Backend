@@ -28,6 +28,7 @@ const {
   getAllSearchList,
   getCountryUniversity,
   getUniversityCourseList,
+  createPopularCourse,
 } = require("../../controller/course/course");
 const { uploadFile } = require("../../middleware/uploadFile");
 const router = express.Router();
@@ -60,4 +61,6 @@ router.post("/client/university/details",getUniversityDetails);
 router.post("/client/main/search/details",getAllSearchList);
 router.post("/client/university/course/list",getUniversityCourseList)
 router.post("/client/country/university/list",getCountryUniversity);
+// Popular course
+router.post("/admin/add/popular/course",authorizedAdmin,uploadFile('./uploads/popularIcons/').fields([{ name: 'images', maxCount: 10 }]),createPopularCourse)
 module.exports = router;

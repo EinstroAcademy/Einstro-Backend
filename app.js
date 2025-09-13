@@ -10,6 +10,8 @@ const courseRoutes = require('./routes/course/course.routes');
 const googleRoutes = require('./routes/googleRoutes/google');
 const path = require("path");
 const queryRouter = require("./routes/Query/query.routes");
+const chatRouter = require("./routes/chat/chat.routes");
+
 require('dotenv').config();
 require('./config/passport');
 
@@ -34,6 +36,8 @@ app.use(passport.session());
 
 
 
+
+
 app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
   res.header(
@@ -51,6 +55,7 @@ app.use('/',courseRoutes)
 app.use('/',googleRoutes)
 app.use('/',userRoutes)
 app.use('/',queryRouter)
+app.use('/',chatRouter)
 
 mongoose.connect(
   process.env.MONGO_URI,

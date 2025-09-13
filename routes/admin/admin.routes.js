@@ -10,11 +10,13 @@ const {
   adminUpdatePassword,
   updateAdminProfileImage,
   removeProfilePic,
+  approveImage,
 } = require("../../controller/admin/admin");
 const { authorizedAdmin } = require("../../middleware/authAdmin");
 const { uploadFile } = require("../../middleware/uploadFile");
 
 const router = express.Router();
+
 
 router.route("/admin/create/user").post(signUp);
 router.route("/admin/login").post(login);
@@ -31,5 +33,6 @@ router.post(
   updateAdminProfileImage
 ),
   router.post("/admin/profile/remove/image", authorizedAdmin, removeProfilePic);
+  router.post("/admin/user/approve/image", authorizedAdmin, approveImage);
 
 module.exports = router;

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const Admin = require("../../schema/admin.schema");
 const fs = require('fs');
 const { promisify } = require('util');
+const User = require("../../schema/user.schema");
 const unlinkAsync = promisify(fs.unlink);
 
 const signUp = async(req,res)=>{
@@ -259,6 +260,31 @@ const updateAdminDetails = async(req,res)=>{
     }
 }
 
+const approveImage = async(req,res)=>{
+    try {
+        const {userId,filename,status}= req.body
+
+        if(!userId){
+            return  res.json({status:1,message:"User Id required"})
+        }
+
+        let obj = {
+            [`verificationStatus.${filename}`]: status,
+        };
+
+        const updateStatus = await User.findByIdAndUpdate({_id:userId},obj)
+
+        if(!updateStatus){
+            return res.json({status:0,message:"Status noy pdated"})
+        }
+
+        res.json({status:1,message:"Approved"})
+
+    } catch (error) {
+        console.log(error)
+    }
+}
+
 
 module.exports = {
   signUp,
@@ -270,5 +296,6 @@ module.exports = {
   updateAdminDetails,
   adminUpdatePassword,
   updateAdminProfileImage,
-  removeProfilePic
+  removeProfilePic,
+  approveImage
 };

@@ -191,7 +191,7 @@ const login = async (req, res) => {
         let checkPassword = await bcrypt.compare(password, user.password) // true/false
         if (checkPassword) {
 
-            let token = jwt.sign({ email: user.email, id: user._id, username: user.username, role: user.role }, "einstrostudyabroad", { expiresIn: '2d' })
+            let token = jwt.sign({ email: user.email, id: user._id, username: user.username, role: user.role }, "einstrostudyabroad", { expiresIn: '5d' })
             return res.json({ status: 1, message: 'Login Successfully', token: token, user })
         } else {
             return res.json({ status: 0, message: "Invalid Credentials" })

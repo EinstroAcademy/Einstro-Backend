@@ -567,6 +567,7 @@ const getBranches = async(req,res)=>{
 }
 
 const createUniversity = async (req, res) => {
+  console.log(req.files)
   try {
     const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
     const {
@@ -591,6 +592,13 @@ const createUniversity = async (req, res) => {
       req.files.images.map((e) => {
         images.push(getAttachment(e.destination, e.filename));
       });
+    }
+
+
+     let icon = "";
+    if (req.files?.icon && req.files.icon.length > 0) {
+      const e = req.files.icon[0];
+      icon = getAttachment(e.destination, e.filename);
     }
 
     let uniId = transformSentence(name);
@@ -625,6 +633,7 @@ const createUniversity = async (req, res) => {
       currency,
       uniId,
       images,
+      icon,
       details,
       students,
       rank,
@@ -650,6 +659,7 @@ const createUniversity = async (req, res) => {
 };
 
 const updateUniversity = async (req, res) => {
+  console.log(req.files.icon)
   try {
     const { _id, name, country, location, details, students, rank, costOfLiving, cost, scholarship, requirements, intake_month, startingFee, englishTests,acceptanceRate} = req.body;
     console.log(englishTests)
@@ -691,6 +701,14 @@ const updateUniversity = async (req, res) => {
       });
     }
 
+     let icon = "";
+    if (req.files?.icon && req.files.icon.length > 0) {
+      const e = req.files.icon[0];
+      icon = getAttachment(e.destination, e.filename);
+    }else{
+      icon = req.body.icon
+    }
+
     let uniId = transformSentence(name);
 
     let intakeMonthParsed = [];
@@ -728,7 +746,8 @@ const updateUniversity = async (req, res) => {
         startingFee,
         intake_month: intakeMonthParsed,
         englishTests: englishTestParsed,
-        acceptanceRate
+        acceptanceRate,
+        icon
       }
     },
       { upsert: true, new: true });
@@ -814,7 +833,8 @@ const getAllUniversity = async (req, res) => {
           intake_month:1,
           startingFee:1,
           englishTests:1,
-          acceptanceRate:1
+          acceptanceRate:1,
+          icon:1
         }
       }
     ];
@@ -915,9 +935,9 @@ const getAllSearchList = async (req, res) => {
     const universityIds = universityMatches.map(u => u._id);
 
     // Dynamic limits
-    const courseLimit = (!filterBy || filterBy === 'courses') ? (filterBy ? 50 : 10) : 0;
-    const universityLimit = (!filterBy || filterBy === 'universities') ? (filterBy ? 50 : 10) : 0;
-    const subjectLimit = (!filterBy || filterBy === 'subjects') ? (filterBy ? 50 : 10) : 0;
+    const courseLimit = (!filterBy || filterBy === 'courses') ? (filterBy ? 10 : 10) : 0;
+    const universityLimit = (!filterBy || filterBy === 'universities') ? (filterBy ? 10 : 10) : 0;
+    const subjectLimit = (!filterBy || filterBy === 'subjects') ? (filterBy ? 10 : 10) : 0;
 
     // Courses Aggregate
     let Coursequery=[

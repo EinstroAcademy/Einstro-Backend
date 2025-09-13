@@ -54,6 +54,7 @@ const universitySchema =mongoose.Schema(
         name:{type:String}
       },
       images:[String],
+      icon:{type:String},
       isActive:{type:Boolean,default:true},
       details:{type:String},
       cost:{type:String},

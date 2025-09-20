@@ -17,7 +17,11 @@ const courseSchema = mongoose.Schema(
     isActive: { type: Boolean, default: true },
     nextIntake:{type:String},
     qualification:{type:String},
-    country:{type:String}
+    country:{type:String},
+    isFavourite:{type:Boolean},
+    users:[
+      {type:mongoose.Types.ObjectId,ref:'user'}
+    ]
   },
   {
     timestamps: true,

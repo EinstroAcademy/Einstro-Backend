@@ -3,11 +3,60 @@ const pdfParse = require("pdf-parse");
 const OpenAI = require("openai");
 const fetch = require("node-fetch");
 const {GoogleGenAI} = require("@google/genai")
+const axios = require("axios")
+const cheerio = require("cheerio")
+const puppeteer = require("puppeteer")
+const path = require("path")
 
-
+const urls = [
+  "https://studytez.com/", 
+  "https://studytez.com/course/list",
+  "https://studytez.com/about",
+  "https://studytez.com/blog",
+ " https://www.studytez.com/destination/UK",
+ "https://www.studytez.com/destination/Ireland",
+ "https://www.studytez.com/destination/Australia",
+ "http://localhost:4000/get/all/list/course",
+ "http://localhost:4000/get/all/list/university"
+];
 
 
 let pdfText = "";
+
+async function scrapePage(url, browser) {
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: "networkidle2" });
+
+    // Wait a little if your React app takes time
+   await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Extract visible text
+    const text = await page.evaluate(() => {
+      return document.body.innerText.replace(/\s+/g, " ").trim();
+    });
+
+    await page.close();
+    return { url, text };
+  } catch (err) {
+    console.error("❌ Error scraping", url, err.message);
+    return { url, text: "" };
+  }
+}
+
+async function crawlSite() {
+  const browser = await puppeteer.launch({ headless: true });
+  const results = [];
+
+  for (const url of urls) {
+    const data = await scrapePage(url, browser);
+    results.push(data);
+  }
+
+  await browser.close();
+  fs.writeFileSync("websiteData.json", JSON.stringify(results, null, 2), "utf-8");
+  console.log("✅ Website data saved to websiteData.json");
+}
 
 
 
@@ -93,14 +142,56 @@ const loadPDF = async () => {
     }
 };
 
+
 const geminiChat = async (req, res) => {
     try {
         const { question } = req.body;
         if (!question) {
             return res.status(400).json({ error: "Missing question" });
         }
-        await loadPDF();
-        const prompt = `You are a helpful assistant. The following is content from a PDF document. Use ONLY this content to answer the user's question. If you cannot find the answer in the PDF content, reply ONLY with: Contact admin.\n\nPDF Content:\n${pdfText.substring(0, 8000)}\n\nUser's Question: ${question}\nAnswer strictly from the PDF or say 'Contact admin':`;
+        // 1️⃣ Read site text
+    const websiteData = JSON.parse(fs.readFileSync("websiteData.json", "utf-8"));
+    const siteText = websiteData.map(p => `${p.url}\n${p.text}`).join("\n\n");
+
+    // 2️⃣ Fetch University List
+    const uniResp = await axios.get("http://localhost:4000/get/all/list/university");
+    const universities = uniResp.data?.response || [];
+    const universityText = universities.map(u => 
+      `Name: ${u.name}\nCountry: ${u.country}\nLocation: ${u.location}\nRank: ${u.rank}\nStudents: ${u.students}\nIntake Months: ${u.intake_month?.join(", ")}\nEnglish Tests: ${u.englishTests?.join(", ")}\n`
+    ).join("\n\n");
+
+    // 3️⃣ Fetch Course List
+    const courseResp = await axios.get("http://localhost:4000/get/all/list/course");
+    const courses = courseResp.data?.response || [];
+    const courseText = courses.map(c =>
+      `Course: ${c.name}\nUniversity: ${c.university}\nLevel: ${c.level}\nDuration: ${c.duration}\nFee: ${c.fee}\n`
+    ).join("\n\n");
+
+    // 4️⃣ Build Prompt
+    const prompt = `
+You are an expert educational assistant. Use ONLY the content below to answer the user's question.
+Do NOT invent anything. If the answer is not available, reply ONLY with "Contact admin".
+
+Instructions:
+- Provide complete university details if asked: name, location, country, rank, number of students, intake months.
+- Include fee structures in a table if available.
+- Include courses offered, English requirements, scholarships, and any special notes.
+- Answer in a **well-formatted single paragraph** OR **markdown table** if relevant.
+- Make the answer **ready to read aloud for text-to-speech**.
+- Do not mention the source JSON or the URL.
+
+Website Content:
+${siteText.substring(0, 8000)}
+
+University Information (summarized as one paragraph):
+${universityText}
+
+Course Information (summarized as one paragraph):
+${courseText}
+
+User's Question: ${question}
+Answer strictly in a single coherent paragraph using the content above or say 'Contact admin':
+`;
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
         const response = await ai.models.generateContent({
@@ -124,4 +215,4 @@ const geminiChat = async (req, res) => {
     }
 };
 
-module.exports = { chat ,kiloChat,geminiChat};
+module.exports = { chat ,kiloChat,geminiChat,crawlSite};

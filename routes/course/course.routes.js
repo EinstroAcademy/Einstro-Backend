@@ -29,8 +29,13 @@ const {
   getCountryUniversity,
   getUniversityCourseList,
   createPopularCourse,
+  addToFavourite,
+  getFavouriteList,
+  getCourse,
+  getUniversity,
 } = require("../../controller/course/course");
 const { uploadFile } = require("../../middleware/uploadFile");
+const { authorizedClient } = require("../../middleware/authClient");
 const router = express.Router();
 
 router.post("/admin/create/subject", authorizedAdmin, createSubject);
@@ -57,10 +62,15 @@ router.post("/admin/update/university",authorizedAdmin,uploadFile('./uploads/uni
 router.post("/admin/university/remove", authorizedAdmin,removeUniversity);
 router.post("/admin/university/list", authorizedAdmin,getAllUniversity);
 router.post("/admin/all/university/list", authorizedAdmin,getUniversities);
+router.post("/client/all/university/list",getUniversities);
 router.post("/client/university/details",getUniversityDetails);
 router.post("/client/main/search/details",getAllSearchList);
 router.post("/client/university/course/list",getUniversityCourseList)
 router.post("/client/country/university/list",getCountryUniversity);
+router.post("/client/add/to/favourite",authorizedClient,addToFavourite);
+router.post("/client/favourite/list",authorizedClient,getFavouriteList);
+router.get("/get/all/list/course",getCourse);
+router.get("/get/all/list/university",getUniversity);
 // Popular course
 router.post("/admin/add/popular/course",authorizedAdmin,uploadFile('./uploads/popularIcons/').fields([{ name: 'images', maxCount: 10 }]),createPopularCourse)
 module.exports = router;

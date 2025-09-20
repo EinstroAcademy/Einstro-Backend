@@ -4,6 +4,7 @@ const { Subject, Branch, SubjectBranch, University } = require("../../schema/sub
 const fs = require('fs');
 const { promisify } = require('util');
 const { default: mongoose } = require("mongoose");
+const Favourite = require("../../schema/favourite.schema");
 const unlinkAsync = promisify(fs.unlink);
 
 function transformSentence(sentence) {
@@ -894,6 +895,9 @@ const getUniversities = async(req,res)=>{
   }
 }
 
+
+
+
 const getUniversityDetails =async(req,res)=>{
   try {
     const {universityId}=req.body
@@ -919,10 +923,15 @@ const getAllSearchList = async (req, res) => {
       skip = 0,
       destination="",
       qualification="",
-      subjectId=''
+      subjectId='',
+      university='',
+      studyLevel="",
+      fees=""
     } = req.body;
 
     const searchRegex = { $regex: search, $options: 'i' };
+
+  
 
     const [subjectMatches, branchMatches, universityMatches] = await Promise.all([
       Subject.find({ name: searchRegex }),
@@ -994,6 +1003,16 @@ const getAllSearchList = async (req, res) => {
       )
     }
 
+    if(university!==""){
+      Coursequery.push(
+        {
+          $match: {
+            "universityId._id":new mongoose.Types.ObjectId(university)
+          }
+        },
+      )
+    }
+
     if(qualification!==""){
       Coursequery.push(
         {
@@ -1012,6 +1031,41 @@ const getAllSearchList = async (req, res) => {
           }
         },
       )
+    }
+
+    if(studyLevel!==""){
+      Coursequery.push(
+        {
+          $match: {
+            qualification:studyLevel
+          }
+        },
+      )
+    }
+
+    if (fees !== "") {
+      const [minFee, maxFee] = fees.split("-").map(f => parseInt(f));
+
+      Coursequery.push(
+        {
+          $addFields: {
+            feesNumeric: {
+              $toInt: {
+                $replaceAll: {
+                  input: "$fees",
+                  find: ",",
+                  replacement: ""
+                }
+              }
+            }
+          }
+        },
+        {
+          $match: {
+            feesNumeric: { $gte: minFee, $lte: maxFee }
+          }
+        }
+      );
     }
     const coursePromise = (courseLimit > 0) ? Course.aggregate(Coursequery) : Promise.resolve([]);
 
@@ -1060,6 +1114,51 @@ if (destination !== "") {
     country: destination
   } });
 }
+
+    if (studyLevel !== "") {
+      universityQuery.push({
+        $match: {
+          qualification: studyLevel
+        }
+      })
+    }
+
+    
+    if(university!==""){
+      universityQuery.push(
+        {
+          $match: {
+            _id:new mongoose.Types.ObjectId(university)
+          }
+        },
+      )
+    }
+
+
+    if (fees !== "") {
+      const [minFee, maxFee] = fees.split("-").map(f => parseInt(f));
+
+      universityQuery.push(
+        {
+          $addFields: {
+            feesNumeric: {
+              $toInt: {
+                $replaceAll: {
+                  input: "$startingFee",
+                  find: ",",
+                  replacement: ""
+                }
+              }
+            }
+          }
+        },
+        {
+          $match: {
+            feesNumeric: { $gte: minFee, $lte: maxFee }
+          }
+        }
+      );
+    }
 
 universityQuery.push(
   { $skip: parseInt(skip) },
@@ -1163,6 +1262,36 @@ const getCountryUniversity = async(req,res)=>{
   }
 }
 
+const getUniversity = async(req,res)=>{
+  try {
+    const countryUni = await University.find()
+
+    if(!countryUni){
+      return res.json({status:0,message:"No university Found"})
+    }
+
+    res.json({status:1,response:countryUni})
+
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+const getCourse = async(req,res)=>{
+  try {
+    const countryUni = await Course.find()
+
+    if(!countryUni){
+      return res.json({status:0,message:"No university Found"})
+    }
+
+    res.json({status:1,response:countryUni})
+
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 
 // Popular Courses
 
@@ -1197,6 +1326,120 @@ const createPopularCourse = async (req, res) => {
 };
 
 
+const addToFavourite = async (req, res) => {
+  try {
+    const { favourite, courseId, universityId } = req.body;
+    
+    const userId = req.params.mainUserData?._id; // assuming you have user from auth middleware
+
+    if (!courseId && !universityId) {
+      return res.json({ status: 0, message: "Update Id Required" });
+    }
+
+    // ---------- Course Favourite ----------
+    if (courseId) {
+      if (favourite) {
+        // Add to Favourite collection
+        await Favourite.create({ courseId, userId });
+
+        // Update Course: mark favourite + add user
+        await Course.findByIdAndUpdate(
+          { _id: courseId },
+          {
+            $set: { isFavourite: true },
+            $addToSet: { users: userId } // prevents duplicates
+          },
+          { new: true }
+        );
+
+        return res.json({ status: 1, message: "Course marked as favourite" });
+      } else {
+        // Remove from Favourite collection
+        await Favourite.findOneAndDelete({
+          courseId: new mongoose.Types.ObjectId(courseId),
+          userId: new mongoose.Types.ObjectId(userId)
+        });
+
+
+        // Update Course: unset favourite if no more users, and remove user
+        await Course.findByIdAndUpdate(
+          { _id: courseId },
+          {
+            $set: { isFavourite: false },
+            $pull: { users: userId }
+          },
+          { new: true }
+        );
+
+        return res.json({ status: 1, message: "Course removed from favourites" });
+      }
+    }
+
+    // ---------- University Favourite ----------
+    if (universityId) {
+      if (favourite) {
+        await Favourite.create({ universityId, userId });
+        await University.findByIdAndUpdate(
+          { _id: universityId },
+          {
+            $set: { isFavourite: true },
+            $addToSet: { users: userId }
+          },
+          { new: true }
+        );
+        return res.json({ status: 1, message: "University marked as favourite" });
+      } else {
+        await Favourite.findOneAndDelete({
+          universityId: new mongoose.Types.ObjectId(universityId),
+          userId: new mongoose.Types.ObjectId(userId)
+        });
+        await University.findByIdAndUpdate(
+          { _id: universityId },
+          {
+            $set: { isFavourite: false },
+            $pull: { users: userId }
+          },
+          { new: true }
+        );
+        return res.json({ status: 1, message: "University removed from favourites" });
+      }
+    }
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ status: 0, message: "Internal Server Error" });
+  }
+};
+
+
+const getFavouriteList = async (req, res) => {
+  try {
+    const  userId  = req.params.mainUserData?._id; // or from req.user._id if auth
+
+    const favourites = await Favourite.find({ userId: new mongoose.Types.ObjectId(userId) })
+     .populate({
+        path: "courseId",
+        populate: {
+          path: "universityId", // nested populate inside course
+          model: "university",
+        },
+      })   // populate course details
+      .populate("universityId"); // populate university details
+
+    res.status(200).json({
+      status: 1,
+      count: favourites.length,
+      data: favourites,
+    });
+  } catch (err) {
+    console.error("Error fetching favourites:", err);
+    res.status(500).json({ status: 0, message: "Server error" });
+  }
+};
+
+
+
+
+
 
 module.exports = {
   createSubject,
@@ -1226,5 +1469,9 @@ module.exports = {
   getAllSearchList,
   getUniversityCourseList,
   getCountryUniversity,
-  createPopularCourse
+  createPopularCourse,
+  addToFavourite,
+  getFavouriteList,
+  getCourse,
+  getUniversity
 };

@@ -62,7 +62,11 @@ const universitySchema =mongoose.Schema(
       requirements:{type:String},
       intake_month:[
         {type:String}
-      ]
+      ],
+    isFavourite: { type: Boolean },
+    users: [
+      { type: mongoose.Types.ObjectId, ref: 'user' }
+    ]
     },
     {
       timestamps: true,

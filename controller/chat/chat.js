@@ -6,7 +6,10 @@ const {GoogleGenAI} = require("@google/genai")
 const axios = require("axios")
 const cheerio = require("cheerio")
 const puppeteer = require("puppeteer")
-const path = require("path")
+const path = require("path");
+const { University } = require("../../schema/subject.schema");
+const { Course } = require("../../schema/course.schema");
+const mammoth = require("mammoth");
 
 const urls = [
   "https://studytez.com/", 
@@ -21,7 +24,7 @@ const urls = [
 ];
 
 
-let pdfText = "";
+// let pdfText = "";
 
 async function scrapePage(url, browser) {
   try {
@@ -132,87 +135,162 @@ const kiloChat =async(req,res)=>{
   }
 }
 
+let pdfText = "";
 let pdfLoaded = false;
-const loadPDF = async () => {
-    if (!pdfLoaded) {
-        const dataBuffer = fs.readFileSync("./einstro_academy_detailed.pdf");
-        const data = await pdfParse(dataBuffer);
-        pdfText = data.text;
-        pdfLoaded = true;
+
+// 📂 Load PDFs and DOCX dynamically
+const loadDocs = async () => {
+  if (!pdfLoaded) {
+    let combinedText = "";
+
+    // Load multiple PDFs
+    const pdfFiles = [
+      "./einstro_academy_detailed.pdf",
+    ];
+    for (const file of pdfFiles) {
+      const dataBuffer = fs.readFileSync(file);
+      const data = await pdfParse(dataBuffer);
+      combinedText += "\n\n" + data.text;
     }
+
+    // Load multiple DOCX
+    const docxFiles = [
+      "./FAQ (2).docx",
+      "./FAQs - Study in the UK.docx",
+    ];
+    for (const file of docxFiles) {
+      const result = await mammoth.extractRawText({ path: file });
+      combinedText += "\n\n" + result.value;
+    }
+
+    pdfText = combinedText;
+    pdfLoaded = true;
+  }
 };
 
-
+const sessionStore = {};
 const geminiChat = async (req, res) => {
-    try {
-        const { question } = req.body;
-        if (!question) {
-            return res.status(400).json({ error: "Missing question" });
-        }
-        // 1️⃣ Read site text
+  try {
+    const { question, sessionId } = req.body;
+
+//     if (!sessionId) {
+//       return res.status(400).json({ error: "Missing sessionId" });
+//     }
+
+//     // Initialize session if new
+//     if (!sessionStore[sessionId]) {
+//       sessionStore[sessionId] = { stage: "start", data: {} };
+//     }
+
+//     const session = sessionStore[sessionId];
+
+//     function isValidMobile(number) {
+//   // Allow 10-digit numbers, optionally with +91 or 0 in front
+//   const regex = /^(?:\+91|0)?[6-9]\d{9}$/;
+//   return regex.test(number);
+// }
+
+//     // 🪄 Handle data collection steps
+//     if (session.stage === "start") {
+//       session.stage = "ask_firstname";
+//       return res.json({ answer: "Hi,Can I get your first name?" });
+//     }
+
+//     if (session.stage === "ask_firstname") {
+//       session.data.firstName = question;
+//       session.stage = "ask_lastname";
+//       return res.json({ answer: "Thanks! What's your last name?" });
+//     }
+
+//     if (session.stage === "ask_lastname") {
+//       session.data.lastName = question;
+//       session.stage = "ask_mobile";
+//       return res.json({ answer: "Great! What's your mobile number?" });
+//     }
+
+//     if (session.stage === "ask_mobile") {
+//       if (!isValidMobile(question)) {
+//     return res.json({
+//       answer: "Hmm… that doesn’t look like a valid mobile number 📱. Please enter a valid 10-digit number.",
+//     });
+//   }
+//       session.data.mobile = question;
+//       session.stage = "complete";
+
+//       // ✅ Save data to DB (Example)
+//       // await User.create({
+//       //   firstName: session.data.firstName,
+//       //   lastName: session.data.lastName,
+//       //   mobile: session.data.mobile,
+//       // });
+
+//       console.log(session.data)
+
+//       // Clear session if needed
+//       delete sessionStore[sessionId];
+
+//       return res.json({ answer: "Thanks! Your details have been saved successfully ✅" });
+//     }
+
+    // 🤖 If no data collection needed, continue your Gemini logic
+    await loadDocs();
     const websiteData = JSON.parse(fs.readFileSync("websiteData.json", "utf-8"));
     const siteText = websiteData.map(p => `${p.url}\n${p.text}`).join("\n\n");
 
-    // 2️⃣ Fetch University List
-    const uniResp = await axios.get("http://localhost:4000/get/all/list/university");
-    const universities = uniResp.data?.response || [];
-    const universityText = universities.map(u => 
+    const universities = await University.find();
+    const universityText = universities.map(u =>
       `Name: ${u.name}\nCountry: ${u.country}\nLocation: ${u.location}\nRank: ${u.rank}\nStudents: ${u.students}\nIntake Months: ${u.intake_month?.join(", ")}\nEnglish Tests: ${u.englishTests?.join(", ")}\n`
     ).join("\n\n");
 
-    // 3️⃣ Fetch Course List
-    const courseResp = await axios.get("http://localhost:4000/get/all/list/course");
-    const courses = courseResp.data?.response || [];
+    const courses = await Course.find().populate('universityId');
     const courseText = courses.map(c =>
-      `Course: ${c.name}\nUniversity: ${c.university}\nLevel: ${c.level}\nDuration: ${c.duration}\nFee: ${c.fee}\n`
+      `Course: ${c.title}\nUniversity: ${c.universityId.name}\nLevel: ${c.qualification}\nDuration: ${c.duration}\nFee: ${c.fees}\n`
     ).join("\n\n");
 
-    // 4️⃣ Build Prompt
     const prompt = `
-You are an expert educational assistant. Use ONLY the content below to answer the user's question.
-Do NOT invent anything. If the answer is not available, reply ONLY with "Contact admin".
+You are an educational assistant chatbot for Einstro Study Abroad.
 
-Instructions:
-- Provide complete university details if asked: name, location, country, rank, number of students, intake months.
-- Include fee structures in a table if available.
-- Include courses offered, English requirements, scholarships, and any special notes.
-- Answer in a **well-formatted single paragraph** OR **markdown table** if relevant.
-- Make the answer **ready to read aloud for text-to-speech**.
-- Do not mention the source JSON or the URL.
+📚 CONTEXT:
+Below is all the information you are allowed to use. 
+If the answer to the question cannot be found here, respond with:
+"I don't have this information. Please contact admin."
 
-Website Content:
-${siteText.substring(0, 8000)}
+--- START OF CONTEXT ---
+${siteText}
 
-University Information (summarized as one paragraph):
 ${universityText}
 
-Course Information (summarized as one paragraph):
 ${courseText}
+--- END OF CONTEXT ---
 
-User's Question: ${question}
-Answer strictly in a single coherent paragraph using the content above or say 'Contact admin':
+⚠️ RULES:
+- Use ONLY the above context to answer.
+- If the answer is not in the context, DO NOT make up or guess.
+- Reply only with information from the context.
+- If not found, say: "I don't have this information. Please contact admin."
+- Do not include general knowledge, assumptions, or external info.
+
+❓ User's Question: ${question}
 `;
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
-        });
-        let answer;
-        if (response && response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
-            answer = response.candidates[0].content.parts[0].text.trim();
-        } else {
-            answer = "Contact admin.";
-        }
-        // Post-process answer: if answer seems generic/unknown, force "Contact admin."
-        if (/^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) || answer.length < 3) {
-            answer = "Contact admin.";
-        }
-        res.json({ answer });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Something went wrong" });
+
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: "user", parts: [{ text: prompt }] }]
+    });
+
+    let answer = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Contact admin.";
+    if (/^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) || answer.length < 3) {
+      answer = "Contact admin.";
     }
+
+    res.json({ answer });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong" });
+  }
 };
+
 
 module.exports = { chat ,kiloChat,geminiChat,crawlSite};

@@ -10,6 +10,8 @@ const path = require("path");
 const { University } = require("../../schema/subject.schema");
 const { Course } = require("../../schema/course.schema");
 const mammoth = require("mammoth");
+const {sendEmail} = require("../../middleware/sendmail");
+const { format } = require("date-fns");
 
 const urls = [
   "https://studytez.com/", 
@@ -173,64 +175,87 @@ const geminiChat = async (req, res) => {
   try {
     const { question, sessionId } = req.body;
 
-//     if (!sessionId) {
-//       return res.status(400).json({ error: "Missing sessionId" });
-//     }
+    if (!sessionId) {
+      return res.status(400).json({ error: "Missing sessionId" });
+    }
 
-//     // Initialize session if new
-//     if (!sessionStore[sessionId]) {
-//       sessionStore[sessionId] = { stage: "start", data: {} };
-//     }
+    // Initialize session if new
+    if (!sessionStore[sessionId]) {
+      sessionStore[sessionId] = { stage: "start", data: {} };
+    }
 
-//     const session = sessionStore[sessionId];
+    const session = sessionStore[sessionId];
 
-//     function isValidMobile(number) {
-//   // Allow 10-digit numbers, optionally with +91 or 0 in front
-//   const regex = /^(?:\+91|0)?[6-9]\d{9}$/;
-//   return regex.test(number);
-// }
+    function isValidMobile(number) {
+  // Allow 10-digit numbers, optionally with +91 or 0 in front
+  const regex = /^(?:\+91|0)?[6-9]\d{9}$/;
+  return regex.test(number);
+}
 
-//     // 🪄 Handle data collection steps
-//     if (session.stage === "start") {
-//       session.stage = "ask_firstname";
-//       return res.json({ answer: "Hi,Can I get your first name?" });
-//     }
+const isValidEmail = (email) => {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(String(email).toLowerCase());
+};
 
-//     if (session.stage === "ask_firstname") {
-//       session.data.firstName = question;
-//       session.stage = "ask_lastname";
-//       return res.json({ answer: "Thanks! What's your last name?" });
-//     }
+    // 🪄 Handle data collection steps
+    if (session.stage === "start") {
+      session.stage = "ask_firstname";
+      return res.json({ answer: "Hi,Can I get your first name?" });
+    }
 
-//     if (session.stage === "ask_lastname") {
-//       session.data.lastName = question;
-//       session.stage = "ask_mobile";
-//       return res.json({ answer: "Great! What's your mobile number?" });
-//     }
+    if (session.stage === "ask_firstname") {
+      session.data.firstName = question;
+      session.stage = "ask_lastname";
+      return res.json({ answer: "Thanks! What's your last name?" });
+    }
 
-//     if (session.stage === "ask_mobile") {
-//       if (!isValidMobile(question)) {
-//     return res.json({
-//       answer: "Hmm… that doesn’t look like a valid mobile number 📱. Please enter a valid 10-digit number.",
-//     });
-//   }
-//       session.data.mobile = question;
-//       session.stage = "complete";
+    if (session.stage === "ask_lastname") {
+      session.data.lastName = question;
+      session.stage = "ask_email";
+      return res.json({ answer: "Great! What's your Email ID?" });
+    }
 
-//       // ✅ Save data to DB (Example)
-//       // await User.create({
-//       //   firstName: session.data.firstName,
-//       //   lastName: session.data.lastName,
-//       //   mobile: session.data.mobile,
-//       // });
+     if (session.stage === "ask_email") {
+      if (!isValidEmail(question)) {
+    return res.json({
+      answer: "Hmm… that doesn’t look like a valid Email. Please enter a valid Email ID.",
+    });
+  }
+      session.data.email = question;
+      session.stage = "ask_mobile";
+      return res.json({ answer: "Great! What's your mobile number?" });
+    }
 
-//       console.log(session.data)
+    if (session.stage === "ask_mobile") {
+      if (!isValidMobile(question)) {
+    return res.json({
+      answer: "Hmm… that doesn’t look like a valid mobile number 📱. Please enter a valid 10-digit number.",
+    });
+  }
+      session.data.mobile = question;
+      session.stage = "complete";
 
-//       // Clear session if needed
-//       delete sessionStore[sessionId];
+      // ✅ Save data to DB (Example)
+      // await User.create({
+      //   firstName: session.data.firstName,
+      //   lastName: session.data.lastName,
+      //   mobile: session.data.mobile,
+      // });
 
-//       return res.json({ answer: "Thanks! Your details have been saved successfully ✅" });
-//     }
+      sendEmail({
+        fullName: session.data.firstName,
+        email: session.data.email,
+        phone: session.data.mobile,
+        date: format(new Date(), 'dd/MM/yyyy')
+      })
+
+      console.log(session.data)
+
+      // Clear session if needed
+      delete sessionStore[sessionId];
+
+      return res.json({ answer: "Thanks! Your details have been saved successfully ✅" });
+    }
 
     // 🤖 If no data collection needed, continue your Gemini logic
     await loadDocs();

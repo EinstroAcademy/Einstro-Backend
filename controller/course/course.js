@@ -1072,8 +1072,14 @@ const getAllSearchList = async (req, res) => {
     }
 
     Coursequery.push({
-      $sort:{rank:1}
-    })
+  $addFields: {
+    numericRank: { $toInt: "$rank" } // convert string rank to integer
+  }
+});
+
+Coursequery.push({
+  $sort: { numericRank: 1 } // sort ascending by converted number
+});
     const coursePromise = (courseLimit > 0) ? Course.aggregate(Coursequery) : Promise.resolve([]);
 
     const courseCountPromise = (courseLimit > 0) ? Course.aggregate([

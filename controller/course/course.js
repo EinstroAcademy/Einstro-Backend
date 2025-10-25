@@ -95,7 +95,8 @@ const createCourse =async (req,res)=>{
           subjectId,
           branchId,
           country,
-          qualification
+          qualification,
+          createdBy:req.params.mainAdminId
         });
 
         if(!create){
@@ -585,7 +586,8 @@ const createUniversity = async (req, res) => {
       intake_month,
       startingFee,
       englishTests,
-      acceptanceRate
+      acceptanceRate,
+      
     } = req.body;
 
     let images = [];
@@ -645,7 +647,8 @@ const createUniversity = async (req, res) => {
       intake_month: intakeMonthParsed,
       startingFee,
       englishTests: englishTestParsed,
-      acceptanceRate
+      acceptanceRate,
+      createdBy:req.params.mainAdminId
     });
 
     if (!create) {
@@ -1067,6 +1070,10 @@ const getAllSearchList = async (req, res) => {
         }
       );
     }
+
+    Coursequery.push({
+      $sort:{rank:1}
+    })
     const coursePromise = (courseLimit > 0) ? Course.aggregate(Coursequery) : Promise.resolve([]);
 
     const courseCountPromise = (courseLimit > 0) ? Course.aggregate([
@@ -1159,6 +1166,16 @@ if (destination !== "") {
         }
       );
     }
+
+   universityQuery.push({
+  $addFields: {
+    numericRank: { $toInt: "$rank" } // convert string rank to integer
+  }
+});
+
+universityQuery.push({
+  $sort: { numericRank: 1 } // sort ascending by converted number
+});
 
 universityQuery.push(
   { $skip: parseInt(skip) },

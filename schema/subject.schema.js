@@ -64,6 +64,7 @@ const universitySchema =mongoose.Schema(
         {type:String}
       ],
     isFavourite: { type: Boolean },
+    createdBy: { type: mongoose.Types.ObjectId, ref: 'admin' },
     users: [
       { type: mongoose.Types.ObjectId, ref: 'user' }
     ]

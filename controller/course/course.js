@@ -5,6 +5,7 @@ const fs = require('fs');
 const { promisify } = require('util');
 const { default: mongoose } = require("mongoose");
 const Favourite = require("../../schema/favourite.schema");
+const User = require("../../schema/user.schema");
 const unlinkAsync = promisify(fs.unlink);
 
 function transformSentence(sentence) {
@@ -406,7 +407,7 @@ const clientSideBranchList =async(req,res)=>{
 
   const getAllCourse = async (req, res) => {
     try {
-      const { search = '', active = '',country=[],qualification=[],subject=[],fromDate = '', toDate = '', limit = 25, skip = 0 } = req.body;
+      const { search = '', active = '',country=[],qualification=[],subject=[],university='',fromDate = '', toDate = '', limit = 25, skip = 0 } = req.body;
       let query = [];
   
       if (search !== '') {
@@ -434,6 +435,12 @@ const clientSideBranchList =async(req,res)=>{
         query.push({ $match: { qualification: { $in: qualification } } });
       }
 
+      if (university !== "") {
+        query.push({
+          $match: { universityId: new mongoose.Types.ObjectId(university) }
+        });
+      }
+
       query.push({
         $lookup:{
           from: 'universities',
@@ -457,6 +464,8 @@ const clientSideBranchList =async(req,res)=>{
       {
         $unwind: { path: '$subjectDetails', preserveNullAndEmptyArrays: true },
       })
+
+      
   
   
       query.push({ $sort: { createdAt: -1 } });
@@ -1000,7 +1009,7 @@ const getAllSearchList = async (req, res) => {
       Coursequery.push(
         {
           $match: {
-            country:destination
+           country: { $regex: `^${destination}$`, $options: 'i' }
           }
         },
       )
@@ -1464,6 +1473,8 @@ const getFavouriteList = async (req, res) => {
 
 
 
+
+
 module.exports = {
   createSubject,
   createBranch,
@@ -1496,5 +1507,5 @@ module.exports = {
   addToFavourite,
   getFavouriteList,
   getCourse,
-  getUniversity
+  getUniversity,
 };

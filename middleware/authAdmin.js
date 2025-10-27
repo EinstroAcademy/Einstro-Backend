@@ -15,10 +15,12 @@ const authorizedAdmin = (req, res, next) => {
           let collection = decoded.role === 'admin' ? 'admins' : null;
   
             let mainAdmin
+            
 
             if(collection==='admins'){
                 mainAdmin = await Admin.findOne({email:decoded.email})
             }
+
           if (collection === null) {
             const data = {};
             data.response = 'Unauthorized Access';

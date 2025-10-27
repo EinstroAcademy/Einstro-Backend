@@ -4,30 +4,31 @@ const Admin = require("../../schema/admin.schema");
 const fs = require('fs');
 const { promisify } = require('util');
 const User = require("../../schema/user.schema");
+const subAdmin = require("../../schema/subadmin.schema");
 const unlinkAsync = promisify(fs.unlink);
 
 const signUp = async(req,res)=>{
     try {
         const {username,email,password,mobile}= req.body
         if(email!==""){
-            const user =await Admin.find({email:email}) // group --[]
-            if(user.length>0){
+            const subadmin =await subAdmin.find({email:email}) // group --[]
+            if(subadmin.length>0){
                 return res.json({status:0,message:"Email ALready Exist"})
             }
 
           let hashPassword = await bcrypt.hash(password,10)
 
 
-            const createUser = await Admin.create({
+            const createSubadmin = await subAdmin.create({
                 email:email,
                 password:hashPassword,
                 username:username,
                 role:'sub_admin'
             })
-            if(!createUser){
+            if(!createSubadmin){
                 return res.json({status:0,message:"User Not Created"})
             }
-            res.json({status:1,message:"User Created"})
+            res.json({status:1,message:"Subadmin Created"})
         }else{
             return res.json({status:0,message:"Email is required"})
         }
@@ -36,24 +37,7 @@ const signUp = async(req,res)=>{
     }
 }
 
-const login = async(req,res)=>{
-    try {
-        const {email,password}=req.body
-            const user = await Admin.findOne({email:email}) //$fagdgjgjh#@$%^jhasdjasdjasd
-            if(!user){
-                return res.json({status:0,message:'User not Found'})
-            }
-            let checkPassword = await bcrypt.compare(password,user.password) // true/false
-            if(checkPassword){
-                let token = jwt.sign({email:user.email,id:user._id,username:user.username,role:user.role},"einstrostudyabroad",{expiresIn:'8hr'})
-                return  res.json({status:1,message:'Login Successfully',token:token})
-            }else{
-                return res.json({status:0,message:"Invalid Credentials"})
-            }
-    } catch (error) {
-        console.log(error)
-    }
-}
+
 
 
 const forgotPassword = async(req,res)=>{
@@ -287,7 +271,6 @@ const approveImage = async(req,res)=>{
 
 module.exports = {
   signUp,
-  login,
   forgotPassword,
   verifyOtp,
   resetPassword,

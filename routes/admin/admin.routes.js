@@ -11,6 +11,7 @@ const {
   updateAdminProfileImage,
   removeProfilePic,
   approveImage,
+  adminDashboard,
 } = require("../../controller/admin/admin");
 const { authorizedAdmin } = require("../../middleware/authAdmin");
 const { uploadFile } = require("../../middleware/uploadFile");
@@ -34,5 +35,6 @@ router.post(
 ),
   router.post("/admin/profile/remove/image", authorizedAdmin, removeProfilePic);
   router.post("/admin/user/approve/image", authorizedAdmin, approveImage);
+  router.post("/admin/dashboard/api",authorizedAdmin,adminDashboard)
 
 module.exports = router;

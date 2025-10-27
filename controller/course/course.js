@@ -1006,13 +1006,9 @@ const getAllSearchList = async (req, res) => {
     ]
 
     if(destination!==""){
-      Coursequery.push(
-        {
-          $match: {
-           country: { $regex: `^${destination}$`, $options: 'i' }
-          }
-        },
-      )
+      Coursequery.push({ $match:{
+    country: destination
+  } })
     }
 
     if(university!==""){
@@ -1224,6 +1220,7 @@ const universityCountPromise = (universityLimit > 0) ? University.countDocuments
       courses: courses,
       universities: universities,
       subjects: subjects,
+      destination,
       count: {
         courses: courseCount,
         universities: universityCount,

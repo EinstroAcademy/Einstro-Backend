@@ -317,7 +317,7 @@ const getAllSubject = async (req, res) => {
 
 const clientSideBranchList =async(req,res)=>{
   try {
-    const allBranch = Branch.find().sort({name:1})
+    const allBranch =await Branch.find().sort({name:1})
     if(!allBranch){
      return res.json({status:0,response:{result:[]}})
     }
@@ -927,23 +927,148 @@ const getUniversityDetails =async(req,res)=>{
   }
 }
 
-const getAllSearchList = async (req, res) => {
+const getAllUniversities = async (req, res) => {
   try {
     const {
       search = '',
-      filterBy = '',
+      destination = '',
+      studyLevel = '',
+      university = '',
+      fees = '',
       skip = 0,
-      destination="",
-      qualification="",
-      subjectId='',
-      university='',
-      studyLevel="",
-      fees=""
+      limit = 10
     } = req.body;
 
     const searchRegex = { $regex: search, $options: 'i' };
 
-  
+    // ---------- Base Match Stage ----------
+    const matchStage = { $or: [{ name: searchRegex }] };
+
+    const query = [{ $match: matchStage }];
+
+    if (destination) query.push({ $match: { country: destination } });
+    if (studyLevel) query.push({ $match: { qualification: studyLevel } });
+    if (university) query.push({ $match: { _id: new mongoose.Types.ObjectId(university) } });
+
+    if (fees) {
+      const [minFee, maxFee] = fees.split("-").map(f => parseInt(f));
+      query.push(
+        {
+          $addFields: {
+            feesNumeric: {
+              $toInt: { $replaceAll: { input: "$startingFee", find: ",", replacement: "" } }
+            }
+          }
+        },
+        { $match: { feesNumeric: { $gte: minFee, $lte: maxFee } } }
+      );
+    }
+
+    // ---------- Lookup Courses & Add Counts ----------
+    query.push(
+      {
+        $lookup: {
+          from: 'courses',
+          localField: '_id',
+          foreignField: 'universityId',
+          as: 'courses'
+        }
+      },
+      {
+        $addFields: {
+          courseCount: { $size: "$courses" },
+          numericRank: { $toInt: "$rank" }
+        }
+      },
+      { $sort: { numericRank: 1 } },
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) }
+    );
+
+    // ---------- Main Query ----------
+    const universities = await University.aggregate(query);
+
+    // ---------- Count of Filtered Universities ----------
+    const countQuery = [
+      { $match: matchStage },
+      ...(destination ? [{ $match: { country: destination } }] : []),
+      ...(studyLevel ? [{ $match: { qualification: studyLevel } }] : []),
+      ...(university ? [{ $match: { _id: new mongoose.Types.ObjectId(university) } }] : []),
+      ...(fees ? [
+        {
+          $addFields: {
+            feesNumeric: {
+              $toInt: { $replaceAll: { input: "$startingFee", find: ",", replacement: "" } }
+            }
+          }
+        },
+        { $match: { feesNumeric: { $gte: parseInt(fees.split("-")[0]), $lte: parseInt(fees.split("-")[1]) } } }
+      ] : [])
+    ];
+
+    const [countResult, totalCoursesResult] = await Promise.all([
+      University.aggregate([...countQuery, { $count: "count" }]).then(r => r[0]?.count || 0),
+      University.aggregate([
+        ...countQuery,
+        {
+          $lookup: {
+            from: 'courses',
+            localField: '_id',
+            foreignField: 'universityId',
+            as: 'courses'
+          }
+        },
+        {
+          $project: {
+            totalCourses: { $size: "$courses" }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalCourseCount: { $sum: "$totalCourses" }
+          }
+        }
+      ]).then(r => r[0]?.totalCourseCount || 0)
+    ]);
+
+    const totalPages = Math.ceil(countResult / limit);
+    const currentPage = Math.floor(skip / limit) + 1;
+
+    res.json({
+      status: 1,
+      response: {
+        universities,
+        count: countResult,
+        totalUniversityCourses: totalCoursesResult,
+        totalPages,
+        currentPage,
+        length: universities.length
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 0, message: "Internal server error" });
+  }
+};
+
+
+const getAllCourses = async (req, res) => {
+  try {
+    const {
+      search = '',
+      skip = 0,
+      destination = "",
+      qualification = "",
+      subjectId = '',
+      university = '',
+      studyLevel = "",
+      fees = "",
+      limit = 10
+    } = req.body;
+
+    const searchRegex = { $regex: search, $options: 'i' };
 
     const [subjectMatches, branchMatches, universityMatches] = await Promise.all([
       Subject.find({ name: searchRegex }),
@@ -955,13 +1080,155 @@ const getAllSearchList = async (req, res) => {
     const branchIds = branchMatches.map(b => b._id);
     const universityIds = universityMatches.map(u => u._id);
 
-    // Dynamic limits
-    const courseLimit = (!filterBy || filterBy === 'courses') ? (filterBy ? 10 : 10) : 0;
-    const universityLimit = (!filterBy || filterBy === 'universities') ? (filterBy ? 10 : 10) : 0;
-    const subjectLimit = (!filterBy || filterBy === 'subjects') ? (filterBy ? 10 : 10) : 0;
+    // -------------------- BASE MATCH CONDITIONS --------------------
+    const matchStage = {
+      $or: [
+        { title: searchRegex },
+        { subjectId: { $in: subjectIds } },
+        { branchId: { $in: branchIds } },
+        { universityId: { $in: universityIds } },
+        { "universityId.name": searchRegex },
+      ]
+    };
 
-    // Courses Aggregate
-    let Coursequery=[
+    // -------------------- COURSE FILTERS --------------------
+    const basePipeline = [
+      {
+        $lookup: {
+          from: 'universities',
+          localField: 'universityId',
+          foreignField: '_id',
+          as: 'universityId'
+        }
+      },
+      { $unwind: { path: '$universityId', preserveNullAndEmptyArrays: true } },
+      { $match: matchStage },
+    ];
+
+    if (destination) basePipeline.push({ $match: { country: destination } });
+    if (university) basePipeline.push({ $match: { "universityId._id": new mongoose.Types.ObjectId(university) } });
+    if (qualification) basePipeline.push({ $match: { qualification } });
+    if (subjectId) basePipeline.push({ $match: { 'subjectId._id': new mongoose.Types.ObjectId(subjectId) } });
+    if (studyLevel) basePipeline.push({ $match: { qualification: studyLevel } });
+
+    if (fees) {
+      const [minFee, maxFee] = fees.split("-").map(f => parseInt(f));
+      basePipeline.push(
+        {
+          $addFields: {
+            feesNumeric: {
+              $toInt: { $replaceAll: { input: "$fees", find: ",", replacement: "" } }
+            }
+          }
+        },
+        { $match: { feesNumeric: { $gte: minFee, $lte: maxFee } } }
+      );
+    }
+
+    // -------------------- COURSE LIST QUERY --------------------
+    const coursesPipeline = [
+      ...basePipeline,
+      { $addFields: { numericRank: { $toInt: "$rank" } } },
+      { $sort: { numericRank: 1 } },
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) },
+      {
+        $lookup: {
+          from: 'subjects',
+          localField: 'subjectId',
+          foreignField: '_id',
+          as: 'subjectId'
+        }
+      },
+      { $unwind: { path: '$subjectId', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'branches',
+          localField: 'branchId',
+          foreignField: '_id',
+          as: 'branchId'
+        }
+      },
+      { $unwind: { path: '$branchId', preserveNullAndEmptyArrays: true } }
+    ];
+
+    // -------------------- TOTAL COURSE COUNT QUERY --------------------
+    const countPipeline = [
+      ...basePipeline,
+      { $count: "count" }
+    ];
+
+    // -------------------- UNIQUE UNIVERSITY COUNT QUERY --------------------
+    const universityCountPipeline = [
+      ...basePipeline,
+      {
+        $group: {
+          _id: "$universityId._id", // group by university id
+        }
+      },
+      { $count: "universityCount" }
+    ];
+
+    const [courses, countResult, universityCountResult] = await Promise.all([
+      Course.aggregate(coursesPipeline),
+      Course.aggregate(countPipeline),
+      Course.aggregate(universityCountPipeline)
+    ]);
+
+    const count = countResult[0]?.count || 0;
+    const universityCount = universityCountResult[0]?.universityCount || 0;
+
+    res.json({
+      status: 1,
+      response: {
+        courses,
+        count,               // total courses after filters
+        universityCount,      // total unique universities
+        length: courses.length,
+        totalPages: Math.ceil(count / limit),
+        currentPage: parseInt(skip / limit) + 1,
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 0, message: "Internal server error" });
+  }
+};
+
+
+
+
+const getAllSearchList = async (req, res) => {
+  try {
+    const {
+      search = '',
+      filterBy = '',
+      skip = 0,
+      destination = "",
+      qualification = "",
+      subjectId = '',
+      university = '',
+      studyLevel = "",
+      fees = ""
+    } = req.body;
+
+    const searchRegex = { $regex: search, $options: 'i' };
+
+    const [subjectMatches, branchMatches, universityMatches] = await Promise.all([
+      Subject.find({ name: searchRegex }),
+      Branch.find({ name: searchRegex }),
+      University.find({ name: searchRegex }),
+    ]);
+
+    const subjectIds = subjectMatches.map(s => s._id);
+    const branchIds = branchMatches.map(b => b._id);
+    const universityIds = universityMatches.map(u => u._id);
+
+    const courseLimit = 10; // ✅ keep course limit only
+
+    // -------------------- COURSES AGGREGATE --------------------
+    let Coursequery = [
       {
         $lookup: {
           from: 'universities',
@@ -982,7 +1249,31 @@ const getAllSearchList = async (req, res) => {
           ]
         }
       },
-      
+    ];
+
+    if (destination !== "") Coursequery.push({ $match: { country: destination } });
+    if (university !== "") Coursequery.push({ $match: { "universityId._id": new mongoose.Types.ObjectId(university) } });
+    if (qualification !== "") Coursequery.push({ $match: { qualification } });
+    if (subjectId) Coursequery.push({ $match: { 'subjectId._id': new mongoose.Types.ObjectId(subjectId) } });
+    if (studyLevel !== "") Coursequery.push({ $match: { qualification: studyLevel } });
+
+    if (fees !== "") {
+      const [minFee, maxFee] = fees.split("-").map(f => parseInt(f));
+      Coursequery.push(
+        {
+          $addFields: {
+            feesNumeric: {
+              $toInt: { $replaceAll: { input: "$fees", find: ",", replacement: "" } }
+            }
+          }
+        },
+        { $match: { feesNumeric: { $gte: minFee, $lte: maxFee } } }
+      );
+    }
+
+    Coursequery.push(
+      { $addFields: { numericRank: { $toInt: "$rank" } } },
+      { $sort: { numericRank: 1 } },
       { $skip: parseInt(skip) },
       { $limit: courseLimit },
       {
@@ -1002,92 +1293,12 @@ const getAllSearchList = async (req, res) => {
           as: 'branchId'
         }
       },
-      { $unwind: { path: '$branchId', preserveNullAndEmptyArrays: true } },
-    ]
+      { $unwind: { path: '$branchId', preserveNullAndEmptyArrays: true } }
+    );
 
-    if(destination!==""){
-      Coursequery.push({ $match:{
-    country: destination
-  } })
-    }
+    const coursePromise = Course.aggregate(Coursequery);
 
-    if(university!==""){
-      Coursequery.push(
-        {
-          $match: {
-            "universityId._id":new mongoose.Types.ObjectId(university)
-          }
-        },
-      )
-    }
-
-    if(qualification!==""){
-      Coursequery.push(
-        {
-          $match: {
-            qualification:qualification
-          }
-        },
-      )
-    }
-
-    if(subjectId){
-      Coursequery.push(
-        {
-          $match: {
-            'subjectId._id':new mongoose.Types.ObjectId(subjectId)
-          }
-        },
-      )
-    }
-
-    if(studyLevel!==""){
-      Coursequery.push(
-        {
-          $match: {
-            qualification:studyLevel
-          }
-        },
-      )
-    }
-
-    if (fees !== "") {
-      const [minFee, maxFee] = fees.split("-").map(f => parseInt(f));
-
-      Coursequery.push(
-        {
-          $addFields: {
-            feesNumeric: {
-              $toInt: {
-                $replaceAll: {
-                  input: "$fees",
-                  find: ",",
-                  replacement: ""
-                }
-              }
-            }
-          }
-        },
-        {
-          $match: {
-            feesNumeric: { $gte: minFee, $lte: maxFee }
-          }
-        }
-      );
-    }
-
-    Coursequery.push({
-  $addFields: {
-    numericRank: { $toInt: "$rank" } // convert string rank to integer
-  }
-});
-
-Coursequery.push({
-  $sort: { numericRank: 1 } // sort ascending by converted number
-});
-    const coursePromise = (courseLimit > 0) ? Course.aggregate(Coursequery) : Promise.resolve([]);
-
-    const courseCountPromise = (courseLimit > 0) ? Course.aggregate([
+    const courseCountPromise = Course.aggregate([
       {
         $lookup: {
           from: 'universities',
@@ -1101,131 +1312,122 @@ Coursequery.push({
         $match: {
           $or: [
             { title: searchRegex },
-            { subjectId: { $in: subjectIds } },
-            { branchId: { $in: branchIds } },
             { universityId: { $in: universityIds } },
           ]
         }
       },
-     
       { $count: 'count' }
-    ]).then(result => result[0]?.count || 0) : Promise.resolve(0);
+    ]).then(result => result[0]?.count || 0);
 
-    // Universities Aggregate
+    // -------------------- UNIVERSITIES AGGREGATE --------------------
+    const universityMatch = { $or: [{ name: searchRegex }] };
+    const universityQuery = [{ $match: universityMatch }];
 
-    // Build $match object
-const universityMatch = {
-  $or: [
-    { name: searchRegex }
-  ]
-};
-
-
-
-// Final aggregation pipeline
-const universityQuery = [
-  { $match: universityMatch },
-];
-
-if (destination !== "") {
-  universityQuery.push({ $match:{
-    country: destination
-  } });
-}
-
-    if (studyLevel !== "") {
-      universityQuery.push({
-        $match: {
-          qualification: studyLevel
-        }
-      })
-    }
-
-    
-    if(university!==""){
-      universityQuery.push(
-        {
-          $match: {
-            _id:new mongoose.Types.ObjectId(university)
-          }
-        },
-      )
-    }
-
+    if (destination !== "") universityQuery.push({ $match: { country: destination } });
+    if (studyLevel !== "") universityQuery.push({ $match: { qualification: studyLevel } });
+    if (university !== "") universityQuery.push({ $match: { _id: new mongoose.Types.ObjectId(university) } });
 
     if (fees !== "") {
       const [minFee, maxFee] = fees.split("-").map(f => parseInt(f));
-
       universityQuery.push(
         {
           $addFields: {
             feesNumeric: {
-              $toInt: {
-                $replaceAll: {
-                  input: "$startingFee",
-                  find: ",",
-                  replacement: ""
-                }
-              }
+              $toInt: { $replaceAll: { input: "$startingFee", find: ",", replacement: "" } }
             }
           }
         },
-        {
-          $match: {
-            feesNumeric: { $gte: minFee, $lte: maxFee }
-          }
-        }
+        { $match: { feesNumeric: { $gte: minFee, $lte: maxFee } } }
       );
     }
 
-   universityQuery.push({
-  $addFields: {
-    numericRank: { $toInt: "$rank" } // convert string rank to integer
-  }
-});
+    universityQuery.push(
+      {
+        $lookup: {
+          from: 'courses',
+          localField: '_id',
+          foreignField: 'universityId',
+          as: 'courses'
+        }
+      },
+      {
+        $addFields: {
+          courseCount: { $size: "$courses" }
+        }
+      },
+      { $addFields: { numericRank: { $toInt: "$rank" } } },
+      { $sort: { numericRank: 1 } }
+    );
 
-universityQuery.push({
-  $sort: { numericRank: 1 } // sort ascending by converted number
-});
+    const universityPromise = University.aggregate(universityQuery);
+    const universityCountPromise = University.countDocuments(universityMatch);
 
-universityQuery.push(
-  { $skip: parseInt(skip) },
-  { $limit: universityLimit }
-)
+    const universityCourseCountPromise = University.aggregate([
+      { $match: universityMatch },
+      ...(destination !== "" ? [{ $match: { country: destination } }] : []),
+      ...(studyLevel !== "" ? [{ $match: { qualification: studyLevel } }] : []),
+      ...(university !== "" ? [{ $match: { _id: new mongoose.Types.ObjectId(university) } }] : []),
+      ...(fees !== "" ? [
+        {
+          $addFields: {
+            feesNumeric: {
+              $toInt: { $replaceAll: { input: "$startingFee", find: ",", replacement: "" } }
+            }
+          }
+        },
+        { $match: { feesNumeric: { $gte: parseInt(fees.split("-")[0]), $lte: parseInt(fees.split("-")[1]) } } }
+      ] : []),
+      {
+        $lookup: {
+          from: 'courses',
+          localField: '_id',
+          foreignField: 'universityId',
+          as: 'courses'
+        }
+      },
+      {
+        $project: {
+          totalCourses: { $size: "$courses" }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalCourseCount: { $sum: "$totalCourses" }
+        }
+      }
+    ]).then(r => r[0]?.totalCourseCount || 0);
 
-// Correct aggregate call
-const universityPromise = (universityLimit > 0) ? University.aggregate(universityQuery) : Promise.resolve([]);
+    // -------------------- SUBJECTS AGGREGATE --------------------
+    const subjectPromise = Subject.find({ name: searchRegex });
+    const subjectCountPromise = Subject.countDocuments({ name: searchRegex });
 
-// CountDocuments query
-const universityCountPromise = (universityLimit > 0) ? University.countDocuments(universityMatch) : Promise.resolve(0);
-
-    // Subjects Aggregate
-    const subjectPromise = (subjectLimit > 0) ? Subject.find({ name: searchRegex })
-      .skip(parseInt(skip))
-      .limit(subjectLimit) : Promise.resolve([]);
-
-    const subjectCountPromise = (subjectLimit > 0) ? Subject.countDocuments({ name: searchRegex }) : Promise.resolve(0);
-
-    // Run All in Parallel
-    const [courses, courseCount, universities, universityCount, subjects, subjectCount] = await Promise.all([
+    // -------------------- RUN ALL IN PARALLEL --------------------
+    const [courses, courseCount, universities, universityCount, subjects, subjectCount, totalUniversityCourses] = await Promise.all([
       coursePromise,
       courseCountPromise,
       universityPromise,
       universityCountPromise,
       subjectPromise,
-      subjectCountPromise
+      subjectCountPromise,
+      universityCourseCountPromise
     ]);
 
+    // ✅ Unique university count from course list
+    const uniqueUniversityIds = new Set(courses.map(c => c.universityId?._id?.toString()));
+    const universityCountFromCourses = uniqueUniversityIds.size;
+
     const response = {
-      courses: courses,
-      universities: universities,
-      subjects: subjects,
+      courses,
+      universities,
+      subjects,
       destination,
       count: {
         courses: courseCount,
-        universities: universityCount,
+        universities: universityCountFromCourses,
         subjects: subjectCount,
-        total: courseCount + universityCount + subjectCount
+        universityCourses: totalUniversityCourses,
+        total: courseCount + universityCountFromCourses + subjectCount
       },
       length: {
         courses: courses.length,
@@ -1235,17 +1437,11 @@ const universityCountPromise = (universityLimit > 0) ? University.countDocuments
     };
 
     res.json({ status: 1, response });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 0, message: "Internal server error" });
   }
 };
-
-
-
-
-
 
 
 
@@ -1505,4 +1701,6 @@ module.exports = {
   getFavouriteList,
   getCourse,
   getUniversity,
+  getAllCourses,
+  getAllUniversities
 };

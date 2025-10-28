@@ -33,6 +33,8 @@ const {
   getFavouriteList,
   getCourse,
   getUniversity,
+  getAllCourses,
+  getAllUniversities,
 } = require("../../controller/course/course");
 const { uploadFile } = require("../../middleware/uploadFile");
 const { authorizedClient } = require("../../middleware/authClient");
@@ -65,6 +67,8 @@ router.post("/admin/all/university/list", authorizedAdmin,getUniversities);
 router.post("/client/all/university/list",getUniversities);
 router.post("/client/university/details",getUniversityDetails);
 router.post("/client/main/search/details",getAllSearchList);
+router.post("/client/main/search/courses",getAllCourses);
+router.post("/client/main/search/universities",getAllUniversities);
 router.post("/client/university/course/list",getUniversityCourseList)
 router.post("/client/country/university/list",getCountryUniversity);
 router.post("/client/add/to/favourite",authorizedClient,addToFavourite);

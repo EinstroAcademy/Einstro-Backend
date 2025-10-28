@@ -1117,7 +1117,17 @@ const getAllCourses = async (req, res) => {
         {
           $addFields: {
             feesNumeric: {
-              $toInt: { $replaceAll: { input: "$fees", find: ",", replacement: "" } }
+              $convert: {
+                input: {
+                  $trim: {
+                    input: { $replaceAll: { input: "$fees", find: ",", replacement: "" } },
+                    chars: " "
+                  }
+                },
+                to: "int",
+                onError: null,
+                onNull: null
+              }
             }
           }
         },
@@ -1128,7 +1138,18 @@ const getAllCourses = async (req, res) => {
     // -------------------- COURSE LIST QUERY --------------------
     const coursesPipeline = [
       ...basePipeline,
-      { $addFields: { numericRank: { $toInt: "$rank" } } },
+      {
+        $addFields: {
+          numericRank: {
+            $convert: {
+              input: { $trim: { input: "$rank", chars: " " } },
+              to: "int",
+              onError: null,
+              onNull: null
+            }
+          }
+        }
+      },
       { $sort: { numericRank: 1 } },
       { $skip: parseInt(skip) },
       { $limit: parseInt(limit) },

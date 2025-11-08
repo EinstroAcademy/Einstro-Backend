@@ -19,8 +19,9 @@ function transformSentence(sentence) {
 const createBlog =async (req,res)=>{
     try {
         const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
-        const { title,postedOn,description,details } = req.body;
+        const { title,postedOn,description,details,type} = req.body;
         const image = getAttachment(req.files.image[0].destination, req.files.image[0].filename);
+        const doc = getAttachment(req.files.doc[0].destination,req.files.doc[0].filename)
         let routeId = transformSentence(title)
 
         console.log(image)
@@ -32,8 +33,10 @@ const createBlog =async (req,res)=>{
           description,
           details,
           postedOn:new Date(),
-          blogId:`BLOG-${generateSixDigitNumber()}`,
+          blogId:`${type==='blog'? "BLOG" : "GUIDE"}-${generateSixDigitNumber()}`,
           routeId,
+          doc,
+          type
         });
 
         if(!create){
@@ -93,6 +96,8 @@ const getAllBlogList = async (req, res) => {
             createdAt: 1,
             updatedAt: 1,
             routeId:1,
+            type:1,
+            doc:1
           }
         }
       ];
@@ -189,7 +194,8 @@ const getAllClientBlogList = async (req, res) => {
             blogId:1,
             routeId:1,
             createdAt: 1,
-            updatedAt: 1
+            updatedAt: 1,
+            type:1
           }
         }
       ];
@@ -290,11 +296,15 @@ const removeBlog = async (req, res) => {
 
 const editBlog = async(req,res)=>{
     try {
-        const {_id,blogId,title,description,details,postedOn,isActive}=req.body
+        const {_id,blogId,title,description,details,postedOn,isActive,type}=req.body
         const getAttachment = (path, name) => encodeURI(path.substring(2) + name);
         let image=""
+        let doc=""
         if(req.files.image){
              image = getAttachment(req.files.image[0].destination, req.files.image[0].filename);
+        }
+         if(req.files.doc){
+             doc = getAttachment(req.files.doc[0].destination, req.files.doc[0].filename);
         }
         if(!_id){
             return res.json({status:0,message:"Blog ID required"})
@@ -306,7 +316,8 @@ const editBlog = async(req,res)=>{
           postedOn: postedOn?postedOn:new Date(),
           isActive: isActive,
           blogId:blogId?blogId:`BLOG-${generateSixDigitNumber()}`,
-          routeId:transformSentence(title)
+          routeId:transformSentence(title),
+          type
         };
 
         const unLinkImage = await Blog.findById(_id)
@@ -325,6 +336,18 @@ const editBlog = async(req,res)=>{
                 }
             } catch (err) {
                 console.log("Could not delete old image:", err.message);
+            }
+        }
+        if (doc !== "") {
+            updatedData.doc = doc;
+
+            try {
+                if (unLinkImage.doc) {
+                    const oldImagePath = path.resolve(unLinkImage.doc);
+                    fs.unlinkSync(oldImagePath);
+                }
+            } catch (err) {
+                console.log("Could not delete old doc:", err.message);
             }
         }
        const blog = await Blog.findByIdAndUpdate(_id,{$set:updatedData})

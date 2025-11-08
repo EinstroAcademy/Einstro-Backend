@@ -11,6 +11,7 @@ const googleRoutes = require('./routes/googleRoutes/google');
 const path = require("path");
 const queryRouter = require("./routes/Query/query.routes");
 const chatRouter = require("./routes/chat/chat.routes");
+const settingRouter = require('./routes/setting/setting')
 
 require('dotenv').config();
 require('./config/passport');
@@ -56,6 +57,7 @@ app.use('/',googleRoutes)
 app.use('/',userRoutes)
 app.use('/',queryRouter)
 app.use('/',chatRouter)
+app.use('/',settingRouter)
 
 mongoose.connect(
   process.env.MONGO_URI,

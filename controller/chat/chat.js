@@ -12,6 +12,7 @@ const { Course } = require("../../schema/course.schema");
 const mammoth = require("mammoth");
 const {sendEmail} = require("../../middleware/sendmail");
 const { format } = require("date-fns");
+const Setting = require("../../schema/setting.schema");
 
 const urls = [
   "https://studytez.com/", 
@@ -171,6 +172,351 @@ const loadDocs = async () => {
 };
 
 const sessionStore = {};
+// const geminiChat = async (req, res) => {
+//   try {
+//     const { question, sessionId } = req.body;
+
+//     if (!sessionId) {
+//       return res.status(400).json({ error: "Missing sessionId" });
+//     }
+
+//     // Initialize session if new
+//     if (!sessionStore[sessionId]) {
+//       sessionStore[sessionId] = { stage: "start", data: {} };
+//     }
+
+//     const session = sessionStore[sessionId];
+
+//     function isValidMobile(number) {
+//   // Allow 10-digit numbers, optionally with +91 or 0 in front
+//   const regex = /^(?:\+91|0)?[6-9]\d{9}$/;
+//   return regex.test(number);
+// }
+
+// const isValidEmail = (email) => {
+//   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//   return regex.test(String(email).toLowerCase());
+// };
+
+//     // 🪄 Handle data collection steps
+//     if (session.stage === "start") {
+//       session.stage = "ask_firstname";
+//       return res.json({ answer: "Hi,Can I get your first name?" });
+//     }
+
+//     if (session.stage === "ask_firstname") {
+//       session.data.firstName = question;
+//       session.stage = "ask_lastname";
+//       return res.json({ answer: "Thanks! What's your last name?" });
+//     }
+
+//     if (session.stage === "ask_lastname") {
+//       session.data.lastName = question;
+//       session.stage = "ask_email";
+//       return res.json({ answer: "Great! What's your Email ID?" });
+//     }
+
+//      if (session.stage === "ask_email") {
+//       if (!isValidEmail(question)) {
+//     return res.json({
+//       answer: "Hmm… that doesn’t look like a valid Email. Please enter a valid Email ID.",
+//     });
+//   }
+//       session.data.email = question;
+//       session.stage = "ask_mobile";
+//       return res.json({ answer: "Great! What's your mobile number?" });
+//     }
+
+//     if (session.stage === "ask_mobile") {
+//       if (!isValidMobile(question)) {
+//     return res.json({
+//       answer: "Hmm… that doesn’t look like a valid mobile number 📱. Please enter a valid 10-digit number.",
+//     });
+//   }
+//       session.data.mobile = question;
+//       session.stage = "complete";
+
+//       // ✅ Save data to DB (Example)
+//       // await User.create({
+//       //   firstName: session.data.firstName,
+//       //   lastName: session.data.lastName,
+//       //   mobile: session.data.mobile,
+//       // });
+
+//       sendEmail({
+//         fullName: session.data.firstName,
+//         email: session.data.email,
+//         phone: session.data.mobile,
+//         date: format(new Date(), 'dd/MM/yyyy')
+//       })
+
+//       console.log(session.data)
+
+//       // Clear session if needed
+//       delete sessionStore[sessionId];
+
+//       return res.json({ answer: "Thanks! Your details have been saved successfully ✅" });
+//     }
+
+//     // 🤖 If no data collection needed, continue your Gemini logic
+//     await loadDocs();
+//     const websiteData = JSON.parse(fs.readFileSync("websiteData.json", "utf-8"));
+//     const siteText = websiteData.map(p => `${p.url}\n${p.text}`).join("\n\n");
+
+//     const universities = await University.find();
+//     const universityText = universities.map(u =>
+//       `Name: ${u.name}\nCountry: ${u.country}\nLocation: ${u.location}\nRank: ${u.rank}\nStudents: ${u.students}\nIntake Months: ${u.intake_month?.join(", ")}\nEnglish Tests: ${u.englishTests?.join(", ")}\n`
+//     ).join("\n\n");
+
+//     const courses = await Course.find().populate('universityId');
+//     const courseText = courses.map(c =>
+//       `Course: ${c.title}\nUniversity: ${c.universityId.name}\nLevel: ${c.qualification}\nDuration: ${c.duration}\nFee: ${c.fees}\n`
+//     ).join("\n\n");
+
+//     const prompt = `
+// You are an educational assistant chatbot for Einstro Study Abroad.
+
+// 📚 CONTEXT:
+// Below is all the information you are allowed to use. 
+// If the answer to the question cannot be found here, respond with:
+// "I don't have this information. Please contact admin."
+
+// --- START OF CONTEXT ---
+// ${siteText}
+
+// ${universityText}
+
+// ${courseText}
+// --- END OF CONTEXT ---
+
+// ⚠️ RULES:
+// - Use ONLY the above context to answer.
+// - If the answer is not in the context, DO NOT make up or guess.
+// - Reply only with information from the context.
+// - If not found, say: "I don't have this information. Please contact admin."
+// - Do not include general knowledge, assumptions, or external info.
+
+// ❓ User's Question: ${question}
+// `;
+
+//     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+//     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+//     const response = await ai.models.generateContent({
+//       model: 'gemini-2.5-flash',
+//       contents: [{ role: "user", parts: [{ text: prompt }] }]
+//     });
+
+//     let answer = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Contact admin.";
+//     if (/^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) || answer.length < 3) {
+//       answer = "Contact admin.";
+//     }
+
+//     res.json({ answer });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: "Something went wrong" });
+//   }
+// };
+
+
+// const geminiChat = async (req, res) => {
+//   try {
+//     const { question, sessionId } = req.body;
+
+//     if (!sessionId) {
+//       return res.status(400).json({ error: "Missing sessionId" });
+//     }
+
+//     // Initialize session
+//     if (!sessionStore[sessionId]) {
+//       sessionStore[sessionId] = {
+//         stage: "start",
+//         data: {},
+//         questionsAsked: 0
+//       };
+//     }
+
+//     const session = sessionStore[sessionId];
+
+//     // Validators
+//     function isValidMobile(number) {
+//       const regex = /^(?:\+91|0)?[6-9]\d{9}$/;
+//       return regex.test(number);
+//     }
+
+//     function isValidEmail(email) {
+//       const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//       return regex.test(String(email).toLowerCase());
+//     }
+
+//     // 🧠 Let Gemini handle first few questions before asking details
+//     if (session.stage === "start") {
+//       session.questionsAsked++;
+
+//       // After 2 or 3 questions, start collecting details
+//       if (session.questionsAsked >= 5) {
+//         session.stage = "ask_firstname";
+//         return res.json({ answer: "Hi! Can I get your first name?" });
+//       }
+
+//       // Handle Gemini Q&A until then
+//       await loadDocs();
+//       const websiteData = JSON.parse(fs.readFileSync("websiteData.json", "utf-8"));
+//       const siteText = websiteData.map(p => `${p.url}\n${p.text}`).join("\n\n");
+
+//       const universities = await University.find();
+//       const universityText = universities.map(u =>
+//         `Name: ${u.name}\nCountry: ${u.country}\nLocation: ${u.location}\nRank: ${u.rank}\nStudents: ${u.students}\nIntake Months: ${u.intake_month?.join(", ")}\nEnglish Tests: ${u.englishTests?.join(", ")}\n`
+//       ).join("\n\n");
+
+//       const courses = await Course.find().populate("universityId");
+//       const courseText = courses.map(c =>
+//         `Course: ${c.title}\nUniversity: ${c.universityId.name}\nLevel: ${c.qualification}\nDuration: ${c.duration}\nFee: ${c.fees}\n`
+//       ).join("\n\n");
+
+//       const prompt = `
+// You are an educational assistant chatbot for Einstro Study Abroad.
+
+// 📚 CONTEXT:
+// Below is all the information you are allowed to use. 
+// If the answer to the question cannot be found here, respond with:
+// "I don't have this information. Please contact admin."
+
+// --- START OF CONTEXT ---
+// ${siteText}
+
+// ${universityText}
+
+// ${courseText}
+// --- END OF CONTEXT ---
+
+// ❓ User's Question: ${question}
+// `;
+
+//       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+//       const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+//       const response = await ai.models.generateContent({
+//         model: "gemini-2.5-flash",
+//         contents: [{ role: "user", parts: [{ text: prompt }] }]
+//       });
+
+//       let answer =
+//         response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+//         "Contact admin.";
+//       if (
+//         /^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) ||
+//         answer.length < 3
+//       ) {
+//         answer = "Contact admin.";
+//       }
+
+//       return res.json({ answer });
+//     }
+
+//     // 🪄 Data Collection Flow
+//     if (session.stage === "ask_firstname") {
+//       session.data.firstName = question;
+//       session.stage = "ask_lastname";
+//       return res.json({ answer: "Thanks! What's your last name?" });
+//     }
+
+//     if (session.stage === "ask_lastname") {
+//       session.data.lastName = question;
+//       session.stage = "ask_email";
+//       return res.json({ answer: "Great! What's your Email ID?" });
+//     }
+
+//     if (session.stage === "ask_email") {
+//       if (!isValidEmail(question)) {
+//         return res.json({
+//           answer: "Hmm… that doesn’t look like a valid Email. Please enter a valid Email ID."
+//         });
+//       }
+//       session.data.email = question;
+//       session.stage = "ask_mobile";
+//       return res.json({ answer: "Perfect! What's your mobile number?" });
+//     }
+
+//     if (session.stage === "ask_mobile") {
+//       if (!isValidMobile(question)) {
+//         return res.json({
+//           answer:
+//             "Hmm… that doesn’t look like a valid mobile number 📱. Please enter a valid 10-digit number."
+//         });
+//       }
+
+//       session.data.mobile = question;
+//       session.stage = "complete";
+
+//       sendEmail({
+//         fullName: `${session.data.firstName} ${session.data.lastName}`,
+//         email: session.data.email,
+//         phone: session.data.mobile,
+//         date: format(new Date(), "dd/MM/yyyy")
+//       });
+
+//       console.log("Saved user data:", session.data);
+//       return res.json({
+//         answer:
+//           "Thanks! Your details have been saved successfully ✅. How else can I help you today?"
+//       });
+//     }
+
+//     // 🧩 Once details are collected, continue Gemini logic forever
+//     if (session.stage === "complete") {
+//       await loadDocs();
+//       const websiteData = JSON.parse(fs.readFileSync("websiteData.json", "utf-8"));
+//       const siteText = websiteData.map(p => `${p.url}\n${p.text}`).join("\n\n");
+
+//       const universities = await University.find();
+//       const universityText = universities.map(u =>
+//         `Name: ${u.name}\nCountry: ${u.country}\nLocation: ${u.location}\nRank: ${u.rank}\nStudents: ${u.students}\nIntake Months: ${u.intake_month?.join(", ")}\nEnglish Tests: ${u.englishTests?.join(", ")}\n`
+//       ).join("\n\n");
+
+//       const courses = await Course.find().populate("universityId");
+//       const courseText = courses.map(c =>
+//         `Course: ${c.title}\nUniversity: ${c.universityId.name}\nLevel: ${c.qualification}\nDuration: ${c.duration}\nFee: ${c.fees}\n`
+//       ).join("\n\n");
+
+//       const prompt = `
+// You are an educational assistant chatbot for Einstro Study Abroad.
+
+// 📚 CONTEXT:
+// ${siteText}
+
+// ${universityText}
+
+// ${courseText}
+
+// ❓ User's Question: ${question}
+// `;
+
+//       const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+//       const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+//       const response = await ai.models.generateContent({
+//         model: "gemini-2.5-flash",
+//         contents: [{ role: "user", parts: [{ text: prompt }] }]
+//       });
+
+//       let answer =
+//         response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+//         "Contact admin.";
+//       if (
+//         /^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) ||
+//         answer.length < 3
+//       ) {
+//         answer = "Contact admin.";
+//       }
+
+//       return res.json({ answer });
+//     }
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: "Something went wrong" });
+//   }
+// };
+
+
 const geminiChat = async (req, res) => {
   try {
     const { question, sessionId } = req.body;
@@ -181,28 +527,48 @@ const geminiChat = async (req, res) => {
 
     // Initialize session if new
     if (!sessionStore[sessionId]) {
-      sessionStore[sessionId] = { stage: "start", data: {} };
+      sessionStore[sessionId] = {
+        stage: "start",
+        data: {},
+        questionsAsked: 0,
+        pendingQuestion: null
+      };
     }
 
     const session = sessionStore[sessionId];
 
+    // --- Validators ---
     function isValidMobile(number) {
-  // Allow 10-digit numbers, optionally with +91 or 0 in front
-  const regex = /^(?:\+91|0)?[6-9]\d{9}$/;
-  return regex.test(number);
-}
-
-const isValidEmail = (email) => {
-  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return regex.test(String(email).toLowerCase());
-};
-
-    // 🪄 Handle data collection steps
-    if (session.stage === "start") {
-      session.stage = "ask_firstname";
-      return res.json({ answer: "Hi,Can I get your first name?" });
+      const regex = /^(?:\+91|0)?[6-9]\d{9}$/;
+      return regex.test(number);
     }
 
+    function isValidEmail(email) {
+      const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return regex.test(String(email).toLowerCase());
+    }
+
+    // --- Main flow ---
+    if (session.stage === "start") {
+      session.questionsAsked++;
+
+      // If user has already given details, continue Gemini logic
+      if (session.stage === "complete") {
+        return handleGemini(question, res);
+      }
+
+      // After 3rd question, start collecting details
+      if (session.questionsAsked >= 3 && !session.data.email) {
+        session.pendingQuestion = question; // store last user question
+        session.stage = "ask_firstname";
+        return res.json({ answer: "Hi! Can I get your first name?" });
+      }
+
+      // Otherwise, continue normal Gemini flow
+      return handleGemini(question, res);
+    }
+
+    // 🪄 Data collection flow
     if (session.stage === "ask_firstname") {
       session.data.firstName = question;
       session.stage = "ask_lastname";
@@ -215,64 +581,97 @@ const isValidEmail = (email) => {
       return res.json({ answer: "Great! What's your Email ID?" });
     }
 
-     if (session.stage === "ask_email") {
+    if (session.stage === "ask_email") {
       if (!isValidEmail(question)) {
-    return res.json({
-      answer: "Hmm… that doesn’t look like a valid Email. Please enter a valid Email ID.",
-    });
-  }
+        return res.json({
+          answer: "Hmm… that doesn’t look like a valid Email. Please enter a valid Email ID."
+        });
+      }
       session.data.email = question;
       session.stage = "ask_mobile";
-      return res.json({ answer: "Great! What's your mobile number?" });
+      return res.json({ answer: "Perfect! What's your mobile number?" });
     }
 
     if (session.stage === "ask_mobile") {
       if (!isValidMobile(question)) {
-    return res.json({
-      answer: "Hmm… that doesn’t look like a valid mobile number 📱. Please enter a valid 10-digit number.",
-    });
-  }
+        return res.json({
+          answer:
+            "Hmm… that doesn’t look like a valid mobile number 📱. Please enter a valid 10-digit number."
+        });
+      }
+
       session.data.mobile = question;
       session.stage = "complete";
 
-      // ✅ Save data to DB (Example)
-      // await User.create({
-      //   firstName: session.data.firstName,
-      //   lastName: session.data.lastName,
-      //   mobile: session.data.mobile,
-      // });
-
+      // Save or email data
       sendEmail({
-        fullName: session.data.firstName,
+        fullName: `${session.data.firstName} ${session.data.lastName}`,
         email: session.data.email,
         phone: session.data.mobile,
-        date: format(new Date(), 'dd/MM/yyyy')
-      })
+        date: format(new Date(), "dd/MM/yyyy")
+      });
 
-      console.log(session.data)
+      console.log("Saved user data:", session.data);
 
-      // Clear session if needed
-      delete sessionStore[sessionId];
+      // Resume pending question if any
+      const savedQuestion = session.pendingQuestion;
+      session.pendingQuestion = null;
 
-      return res.json({ answer: "Thanks! Your details have been saved successfully ✅" });
+      if (savedQuestion) {
+        const answer = await generateGeminiAnswer(savedQuestion);
+        return res.json({
+          answer: `Thanks! Your details have been saved successfully ✅\n\nNow, about your earlier question:\n${answer}`
+        });
+      }
+
+      // if no pending question
+      return res.json({
+        answer: "Thanks! Your details have been saved successfully ✅. How else can I help you today?"
+      });
     }
 
-    // 🤖 If no data collection needed, continue your Gemini logic
-    await loadDocs();
-    const websiteData = JSON.parse(fs.readFileSync("websiteData.json", "utf-8"));
-    const siteText = websiteData.map(p => `${p.url}\n${p.text}`).join("\n\n");
+    // Once complete, answer questions directly
+    if (session.stage === "complete") {
+      return handleGemini(question, res);
+    }
 
-    const universities = await University.find();
-    const universityText = universities.map(u =>
-      `Name: ${u.name}\nCountry: ${u.country}\nLocation: ${u.location}\nRank: ${u.rank}\nStudents: ${u.students}\nIntake Months: ${u.intake_month?.join(", ")}\nEnglish Tests: ${u.englishTests?.join(", ")}\n`
-    ).join("\n\n");
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+};
 
-    const courses = await Course.find().populate('universityId');
-    const courseText = courses.map(c =>
-      `Course: ${c.title}\nUniversity: ${c.universityId.name}\nLevel: ${c.qualification}\nDuration: ${c.duration}\nFee: ${c.fees}\n`
-    ).join("\n\n");
+// ----------------------------------------------------
+// Helper: Handles Gemini Q&A
+// ----------------------------------------------------
+async function handleGemini(question, res) {
+  const answer = await generateGeminiAnswer(question);
+  return res.json({ answer });
+}
 
-    const prompt = `
+// ----------------------------------------------------
+// Helper: Generates Gemini Answer
+// ----------------------------------------------------
+async function generateGeminiAnswer(question) {
+  await loadDocs();
+  const websiteData = JSON.parse(fs.readFileSync("websiteData.json", "utf-8"));
+  const siteText = websiteData.map(p => `${p.url}\n${p.text}`).join("\n\n");
+
+  const universities = await University.find();
+  const universityText = universities.map(u =>
+    `Name: ${u.name}\nCountry: ${u.country}\nLocation: ${u.location}\nRank: ${u.rank}\nStudents: ${u.students}\nIntake Months: ${u.intake_month?.join(", ")}\nEnglish Tests: ${u.englishTests?.join(", ")}\n`
+  ).join("\n\n");
+
+  const courses = await Course.find().populate("universityId");
+  const courseText = courses.map(c =>
+    `Course: ${c.title}\nUniversity: ${c.universityId.name}\nLevel: ${c.qualification}\nDuration: ${c.duration}\nFee: ${c.fees}\n`
+  ).join("\n\n");
+
+  const geminiSetting = await Setting.findOne({ settingId: "gemini-details" });
+  const geminiExtra = geminiSetting?.content || "";
+
+
+  const prompt = `
 You are an educational assistant chatbot for Einstro Study Abroad.
 
 📚 CONTEXT:
@@ -286,36 +685,34 @@ ${siteText}
 ${universityText}
 
 ${courseText}
---- END OF CONTEXT ---
 
-⚠️ RULES:
-- Use ONLY the above context to answer.
-- If the answer is not in the context, DO NOT make up or guess.
-- Reply only with information from the context.
-- If not found, say: "I don't have this information. Please contact admin."
-- Do not include general knowledge, assumptions, or external info.
+${geminiExtra}
+--- END OF CONTEXT ---
 
 ❓ User's Question: ${question}
 `;
 
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: "user", parts: [{ text: prompt }] }]
-    });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }]
+  });
 
-    let answer = response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Contact admin.";
-    if (/^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) || answer.length < 3) {
-      answer = "Contact admin.";
-    }
+  let answer =
+    response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
+    "Contact admin.";
 
-    res.json({ answer });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+  if (
+    /^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) ||
+    answer.length < 3
+  ) {
+    answer = "Contact admin.";
   }
-};
+
+  return answer;
+}
+
+
 
 
 module.exports = { chat ,kiloChat,geminiChat,crawlSite};

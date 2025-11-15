@@ -977,7 +977,13 @@ const getAllUniversities = async (req, res) => {
       {
         $addFields: {
           courseCount: { $size: "$courses" },
-          numericRank: { $toInt: "$rank" }
+          numericRank: {
+            $cond: [
+              { $regexMatch: { input: "$rank", regex: /^[0-9]+$/ } },
+              { $toInt: "$rank" },
+              null
+            ]
+    }
         }
       },
       { $sort: { numericRank: 1 } },

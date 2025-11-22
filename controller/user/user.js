@@ -5,6 +5,7 @@ const fs = require('fs');
 const Serial = require("../../schema/serial.schema");
 const { Course } = require("../../schema/course.schema");
 const { University } = require("../../schema/subject.schema");
+const Application = require("../../schema/application.schema");
 
 
 
@@ -180,6 +181,104 @@ const signUp = async (req, res) => {
         console.log(error)
     }
 }
+
+const signUpAndApplyCourse = async (req, res) => {
+  try {
+    const {
+      firstName, lastName, fullName,
+      email, password, mobile,
+      courseId, universityId, intake, personalStatement, additionalDocuments = []
+    } = req.body;
+
+    // Step 1: Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.json({ status: 0, message: "Email already exists" });
+    }
+
+    // Step 2: Create new user
+    const hashPassword = await bcrypt.hash(password, 10);
+    const createUser = await User.create({
+      email,
+      password: hashPassword,
+      fullName,
+      firstName,
+      lastName,
+      role: "user",
+      mobile,
+    });
+
+    if (!createUser) {
+      return res.json({ status: 0, message: "User not created" });
+    }
+
+    // Step 3: Generate JWT
+    const token = jwt.sign(
+      { email: createUser.email, id: createUser._id },
+      "einstrostudyabroad",
+      { expiresIn: "5d" }
+    );
+
+    // Step 4: Trigger course application (reusing your logic)
+    const course = await Course.findById(courseId);
+    const university = await University.findById(universityId);
+
+    if (!course || !university) {
+      return res.json({ status: 0, message: "Invalid course or university" });
+    }
+
+    const newApplication = {
+        userId:createUser?._id,
+      courseId,
+      universityId,
+      appliedDate: new Date(),
+      status: "pending",
+      applicationNumber: Math.random().toString(36).slice(2, 10).toUpperCase(),
+      intake,
+      tuitionFees: course.fees || 0,
+      currency: course.currency || "USD",
+      personalStatement,
+      additionalDocuments,
+      lastUpdated: new Date(),
+    };
+
+     const existingApplication = await Application.find({courseId,universityId,userId:createUser?._id});
+
+    if (existingApplication.length>0) {
+      return res.json({
+        success: false,
+        status:0,
+        message: 'You have already applied for this course at this university'
+      });
+    }
+
+
+
+     const createApplication = await Application.create(newApplication)
+
+     if (!createApplication) {
+      return res.json({ status: 0, message: "Application is Created for User" });
+    }
+    res.json({
+      status: 1,
+      message: "User created and application submitted successfully",
+      token,
+      data: {
+        userId: createUser._id,
+        application: newApplication,
+      },
+    });
+
+  } catch (error) {
+    console.error("Error in signup and apply:", error);
+    res.status(500).json({
+      status: 0,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 
 const login = async (req, res) => {
     try {
@@ -1367,12 +1466,9 @@ const applyUser =async(req,res)=>{
     }
 
     // Check if user already applied for this course
-    const existingApplication = user.applications?.find(
-      app => app.courseId.toString() === courseId && 
-             app.universityId.toString() === universityId
-    );
+    const existingApplication = await Application.find({courseId,universityId,userId});
 
-    if (existingApplication) {
+    if (existingApplication.length>0) {
       return res.json({
         success: false,
         status:0,
@@ -1383,6 +1479,7 @@ const applyUser =async(req,res)=>{
     // Create new application
     const newApplication = {
       courseId,
+      userId:user?._id,
       universityId,
       appliedDate: new Date(),
       status: 'pending',
@@ -1406,30 +1503,22 @@ const applyUser =async(req,res)=>{
     };
 
     // Add application to user's applications array
-    if (!user.applications) {
-      user.applications = [];
-    }
-    user.applications.push(newApplication);
+    const application = await Application.create(newApplication)
 
-    // Save user
-    await user.save();
+   if(!application){
+    return res.json({status:0,message:'Something went wrong'})
+   }
 
-    // Get the newly created application with populated data
-    const updatedUser = await User.findById(userId)
-      .populate('applications.courseId', 'name duration degree level')
-      .populate('applications.universityId', 'name country city');
-
-    const createdApplication = updatedUser.applications[updatedUser.applications.length - 1];
 
     res.json({
       success: true,
       status:1,
       message: 'Application submitted successfully',
       data: {
-        applicationNumber: createdApplication.applicationNumber,
-        application: createdApplication,
-        course: createdApplication.courseId,
-        university: createdApplication.universityId
+        applicationNumber: application.applicationNumber,
+        application: application,
+        course: application.courseId,
+        university: application.universityId
       }
     });
 
@@ -1443,6 +1532,48 @@ const applyUser =async(req,res)=>{
     });
   }
 }
+
+const userApplication = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.json({ status: 0, message: "User ID required" });
+    }
+
+    // Fetch applications with course + university populated
+    const applications = await Application.find({ userId })
+      .populate({
+        path: "courseId",
+      })
+      .populate({
+        path: "universityId",
+      })
+      .populate({
+        path: "userId",
+      })
+      .sort({ createdAt: -1 });
+
+    if (!applications || applications.length === 0) {
+      return res.json({ status: 0, message: "No applications found" });
+    }
+
+    res.json({
+      status: 1,
+      message: "Applications fetched successfully",
+      data: applications
+    });
+
+  } catch (error) {
+    console.error("Error fetching user applications:", error);
+    res.status(500).json({
+      status: 0,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
 
 
 
@@ -1470,5 +1601,7 @@ module.exports = {
     removeUserSchoolAdmin,
     profileCompletionPercentage,
     applyUser,
-    removeUserTestAdmin
+    removeUserTestAdmin,
+    signUpAndApplyCourse,
+    userApplication
 };

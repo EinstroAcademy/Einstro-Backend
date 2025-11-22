@@ -700,13 +700,13 @@ ${geminiExtra}
 
   let answer =
     response?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-    "Contact admin.";
+    "Contact admin";
 
   if (
     /^(i (don't|do not) know|sorry|cannot find|not sure|no information|not found|unknown|outside|as an ai|as a language|i don['’]t have)/i.test(answer) ||
     answer.length < 3
   ) {
-    answer = "Contact admin.";
+    answer = "Contact admin";
   }
 
   return answer;

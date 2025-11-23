@@ -13,6 +13,7 @@ const mammoth = require("mammoth");
 const {sendEmail} = require("../../middleware/sendmail");
 const { format } = require("date-fns");
 const Setting = require("../../schema/setting.schema");
+const Blog = require("../../schema/blog.schema");
 
 const urls = [
   "https://studytez.com/", 
@@ -667,6 +668,10 @@ async function generateGeminiAnswer(question) {
     `Course: ${c.title}\nUniversity: ${c.universityId.name}\nLevel: ${c.qualification}\nDuration: ${c.duration}\nFee: ${c.fees}\n`
   ).join("\n\n");
 
+  const blog = await Blog.find()
+  const blogText = blog.map(u =>
+    `title: ${u.title}\nDescription: ${u.description}\ndetails: ${u.details}`).join("\n\n");
+
   const geminiSetting = await Setting.findOne({ settingId: "gemini-details" });
   const geminiExtra = geminiSetting?.content || "";
 
@@ -687,6 +692,8 @@ ${universityText}
 ${courseText}
 
 ${geminiExtra}
+
+${blogText}
 --- END OF CONTEXT ---
 
 ❓ User's Question: ${question}

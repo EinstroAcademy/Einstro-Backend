@@ -1,5 +1,6 @@
 var jwt = require('jsonwebtoken');
 const Admin = require('../schema/admin.schema');
+const subAdmin = require('../schema/subadmin.schema');
 
 const authorizedAdmin = (req, res, next) => {
     const token = req.headers.authorization;
@@ -12,13 +13,13 @@ const authorizedAdmin = (req, res, next) => {
           data.status = '00';
           res.send(data);
         } else {
-          let collection = decoded.role === 'admin' ? 'admins' : null;
-  
+          let collection = decoded.role === 'admin' ? 'admins' : decoded.role==='sub_admin' ? 'sub_admin' : null;
             let mainAdmin
-            
-
             if(collection==='admins'){
                 mainAdmin = await Admin.findOne({email:decoded.email})
+            }
+             if(collection==='sub_admin'){
+                mainAdmin = await subAdmin.findOne({email:decoded.email})
             }
 
           if (collection === null) {

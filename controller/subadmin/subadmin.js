@@ -9,7 +9,7 @@ const unlinkAsync = promisify(fs.unlink);
 
 const signUp = async(req,res)=>{
     try {
-        const {username,email,password,mobile}= req.body
+        const {employeeName,designation,permissions,email,password,mobile}= req.body
         if(email!==""){
             const subadmin =await subAdmin.find({email:email}) // group --[]
             if(subadmin.length>0){
@@ -22,7 +22,9 @@ const signUp = async(req,res)=>{
             const createSubadmin = await subAdmin.create({
                 email:email,
                 password:hashPassword,
-                username:username,
+                employeeName:employeeName,
+                permissions,
+                designation,
                 role:'sub_admin'
             })
             if(!createSubadmin){
@@ -269,6 +271,205 @@ const approveImage = async(req,res)=>{
     }
 }
 
+const subadminList = async (req, res) => {
+  try {
+    const {
+      search = "",
+      limit = 10,
+      skip = 0
+    } = req.body;
+
+    let query = [];
+
+    // SEARCH FILTER
+    if (search !== "") {
+      query.push({
+        $match: {
+          $or: [
+            { name: { $regex: search + ".*", $options: "si" } },
+            { email: { $regex: search + ".*", $options: "si" } },
+            { designation: { $regex: search + ".*", $options: "si" } }
+          ]
+        }
+      });
+    }
+
+    // SORT BY LATEST
+    query.push({ $sort: { createdAt: -1 } });
+
+    // DOCUMENT LIST PIPELINE
+    const documentQuery = [
+      ...query,
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) },
+      {
+        $project: {
+          password: 0,     // hide password
+          __v: 0
+        }
+      }
+    ];
+
+    // COUNT PIPELINE
+    const overallQuery = [
+      ...query,
+      { $count: "counts" }
+    ];
+
+    // FACET
+    const finalquery = [
+      {
+        $facet: {
+          overall: overallQuery,
+          documentdata: documentQuery
+        }
+      }
+    ];
+
+    // DB CALL
+    const subadminData = await subAdmin.aggregate(finalquery);
+
+    let data = subadminData[0].documentdata || [];
+    let fullCount = subadminData[0].overall[0] ? subadminData[0].overall[0].counts : 0;
+
+    // RESPONSE FORMAT (same as your blog function)
+    if (data.length > 0) {
+      res.json({
+        status: 1,
+        response: {
+          result: data,
+          fullcount: fullCount,
+          length: data.length
+        }
+      });
+    } else {
+      res.json({
+        status: 0,
+        response: {
+          result: [],
+          fullcount: fullCount,
+          length: 0
+        }
+      });
+    }
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ status: 0, message: "Internal server error" });
+  }
+};
+
+const deleteSubadmin = async (req, res) => {
+  try {
+    const { subadminId } = req.body;
+
+    if (!subadminId) {
+      return res.json({
+        status: 0,
+        message: "subadminId is required"
+      });
+    }
+
+    const deleted = await subAdmin.findByIdAndDelete({_id:subadminId});
+
+    if (!deleted) {
+      return res.json({
+        status: 0,
+        message: "Subadmin not found"
+      });
+    }
+
+    res.json({
+      status: 1,
+      message: "Subadmin deleted successfully"
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: 0,
+      message: "Internal server error"
+    });
+  }
+};
+
+const updateSubadmin = async (req, res) => {
+  try {
+    const { 
+      subadminId,
+      employeeName,
+      designation,
+      permissions,
+      email,
+      password,
+      mobile
+    } = req.body;
+
+    if (!subadminId) {
+      return res.json({
+        status: 0,
+        message: "subadminId is required"
+      });
+    }
+
+    // Check existing subadmin
+    const existing = await subAdmin.findById(subadminId);
+    if (!existing) {
+      return res.json({
+        status: 0,
+        message: "Subadmin not found"
+      });
+    }
+
+    // Check if email changed
+    if (email && email !== existing.email) {
+      const emailExists = await SubAdmin.findOne({
+        email: email,
+        _id: { $ne: subadminId }
+      });
+
+      if (emailExists) {
+        return res.json({
+          status: 0,
+          message: "Email already exists for another subadmin"
+        });
+      }
+    }
+
+    let updatedData = {
+      employeeName,
+      designation,
+      permissions,
+      email,
+      mobile,
+      updatedAt: new Date()
+    };
+
+    // Hash password if provided
+    if (password && password.trim() !== "") {
+      const hashed = await bcrypt.hash(password, 10);
+      updatedData.password = hashed;
+    }
+
+    await subAdmin.findByIdAndUpdate(subadminId, updatedData, { new: true });
+
+    res.json({
+      status: 1,
+      message: "Subadmin updated successfully"
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      status: 0,
+      message: "Internal server error"
+    });
+  }
+};
+
+
+
+
 module.exports = {
   signUp,
   forgotPassword,
@@ -279,4 +480,7 @@ module.exports = {
   adminUpdatePassword,
   updateAdminProfileImage,
   removeProfilePic,
+  subadminList,
+  deleteSubadmin,
+  updateSubadmin
 };

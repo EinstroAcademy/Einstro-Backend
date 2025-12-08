@@ -1465,7 +1465,7 @@ const getAllSearchList = async (req, res) => {
 
     res.json({ status: 1, response });
   } catch (error) {
-    console.error(error);
+    console.log(error);
     res.status(500).json({ status: 0, message: "Internal server error" });
   }
 };

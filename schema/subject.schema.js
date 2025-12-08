@@ -64,7 +64,15 @@ const universitySchema =mongoose.Schema(
         {type:String}
       ],
     isFavourite: { type: Boolean },
-    createdBy: { type: mongoose.Types.ObjectId, ref: 'admin' },
+    createdBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "createdByModel",
+        },
+        createdByModel: {
+          type: String,
+          required: true,
+          enum: ["admin", "sub_admin"],
+        },
     users: [
       { type: mongoose.Types.ObjectId, ref: 'user' }
     ]

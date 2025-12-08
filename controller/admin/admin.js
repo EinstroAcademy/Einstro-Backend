@@ -54,7 +54,7 @@ const login = async(req,res)=>{
             let checkPassword = await bcrypt.compare(password,user.password) // true/false
             if(checkPassword){
                 let token = jwt.sign({email:user.email,id:user._id,username:user.username,role:user.role},"einstrostudyabroad",{expiresIn:'8hr'})
-                return  res.json({status:1,message:'Login Successfully',token:token})
+                return  res.json({status:1,message:'Login Successfully',token:token,userId:user._id})
             }else{
                 return res.json({status:0,message:"Invalid Credentials"})
             }
@@ -299,9 +299,12 @@ const getAdminDetails = async(req,res)=>{
             return res.json({status:1,message:"Admin Id required"})
         }
 
-        const admin = await Admin.findById({_id:adminId})
+        let admin = await Admin.findById({_id:adminId})
         if(!admin){
-            return res.json({status:0,message:"Admin Not Found"})
+            admin = await subAdmin.findById({_id:adminId})
+            if(!admin){
+                return res.json({status:0,message:"Admin Not Found"})
+            }
         }
 
         res.json({status:1,response:admin})

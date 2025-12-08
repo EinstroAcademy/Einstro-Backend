@@ -3,11 +3,15 @@ const mongoose = require('mongoose');
 
 const sub_adminSchema = mongoose.Schema(
   {
-    username: { type: String },
+    employeeName: { type: String },
     email: { type: String },
     password: { type: String },
     photo: { type: String },
     role: { type: String },
+    designation:{type:String},
+    permissions:[
+      {type:String}
+    ],
     otp:{type:Number},
     otpTimeStamp:{type:Number},
     otpVerified:{type:Boolean,default:false},

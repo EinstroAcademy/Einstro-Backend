@@ -12,7 +12,16 @@ const blogSchema = mongoose.Schema(
     details: { type: String },
     isActive:{type:Boolean,default:true},
     blogId:{type:String},
-    routeId:{type:String}
+    routeId:{type:String},
+    createdBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          refPath: "createdByModel",
+        },
+        createdByModel: {
+          type: String,
+          required: true,
+          enum: ["admin", "sub_admin"],
+        },
   },
   {
     timestamps: true,

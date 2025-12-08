@@ -12,6 +12,8 @@ const path = require("path");
 const queryRouter = require("./routes/Query/query.routes");
 const chatRouter = require("./routes/chat/chat.routes");
 const settingRouter = require('./routes/setting/setting')
+const subadminRouter = require('./routes/sub_admin/subadmin.routes')
+const abroadRouter = require('./routes/abroad/abroad')
 
 require('dotenv').config();
 require('./config/passport');
@@ -58,6 +60,8 @@ app.use('/',userRoutes)
 app.use('/',queryRouter)
 app.use('/',chatRouter)
 app.use('/',settingRouter)
+app.use('/',subadminRouter)
+app.use('/',abroadRouter)
 
 mongoose.connect(
   process.env.MONGO_URI,

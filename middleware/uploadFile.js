@@ -55,7 +55,7 @@ function uploadFile(
   return multer({ 
     storage,
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB limit (adjust as needed)
+      fileSize: 20 * 1024 * 1024  , // 20MB limit (adjust as needed)
     },
     fileFilter: function (req, file, cb) {
       // Optional: Add file type validation

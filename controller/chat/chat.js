@@ -677,7 +677,7 @@ async function generateGeminiAnswer(question) {
 
 
   const prompt = `
-You are an educational assistant chatbot for Einstro Study Abroad.
+You are an educational assistant chatbot for StudyTez.
 
 📚 CONTEXT:
 Below is all the information you are allowed to use. 

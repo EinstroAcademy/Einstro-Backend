@@ -259,9 +259,6 @@ const updateAbroad = async (req, res) => {
 
         // Update route id if country name changed
         const routeId = parsed.country_name
-            .toLowerCase()
-            .trim()
-            .replace(/\s+/g, "-");
 
         parsed.route_id = routeId;
 

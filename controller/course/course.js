@@ -97,7 +97,8 @@ const createCourse =async (req,res)=>{
           branchId,
           country,
           qualification,
-          createdBy:req.params.mainAdminId
+          createdBy:req.params.mainAdminId,
+          createdByModel:req?.params?.mainAdminData?.role
         });
 
         if(!create){
@@ -597,6 +598,7 @@ const createUniversity = async (req, res) => {
       englishTests,
       acceptanceRate,
       
+      
     } = req.body;
 
     let images = [];
@@ -657,7 +659,9 @@ const createUniversity = async (req, res) => {
       startingFee,
       englishTests: englishTestParsed,
       acceptanceRate,
-      createdBy:req.params.mainAdminId
+      createdBy:req.params.mainAdminId,
+          createdByModel:req?.params?.mainAdminData?.role
+        
     });
 
     if (!create) {

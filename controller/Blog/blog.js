@@ -36,7 +36,9 @@ const createBlog =async (req,res)=>{
           blogId:`${type==='blog'? "BLOG" : "GUIDE"}-${generateSixDigitNumber()}`,
           routeId,
           doc,
-          type
+          type,
+          createdBy:req.params.mainAdminId,
+          createdByModel:req?.params?.mainAdminData?.role
         });
 
         if(!create){
